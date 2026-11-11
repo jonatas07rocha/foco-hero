@@ -44,8 +44,8 @@ body {
     display: flex;
     justify-content: center;
     align-items: flex-start;
-    min-height: 100vh;
-    padding: 1rem;
+    min-height: 100dvh;
+    padding: max(0.75rem, env(safe-area-inset-top)) max(0.75rem, env(safe-area-inset-right)) max(0.75rem, env(safe-area-inset-bottom)) max(0.75rem, env(safe-area-inset-left));
     -webkit-tap-highlight-color: transparent;
     transition: background 0.3s, color 0.3s;
     scrollbar-width: none;
@@ -82,9 +82,32 @@ body::-webkit-scrollbar { display: none; }
     flex-direction: column;
     width: 100%;
     max-width: 420px;
-    height: min(760px, calc(100vh - 2rem));
+    height: min(760px, calc(100dvh - 1.5rem));
     box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
     transition: background-color 0.3s, color 0.3s, border-color 0.3s;
+}
+@media (max-width: 640px) {
+    body {
+        padding: max(0.45rem, env(safe-area-inset-top)) max(0.45rem, env(safe-area-inset-right)) max(0.45rem, env(safe-area-inset-bottom)) max(0.45rem, env(safe-area-inset-left));
+    }
+    .device-shell {
+        max-width: 100%;
+        height: calc(100dvh - max(0.9rem, env(safe-area-inset-top) + env(safe-area-inset-bottom)));
+        border-radius: 1.5rem;
+        padding: 0.9rem;
+    }
+}
+@media (max-height: 680px) {
+    .device-shell {
+        padding: 0.85rem;
+    }
+    .timer-panel {
+        padding: 0.5rem;
+        margin-bottom: 0.5rem;
+    }
+    #player-controls {
+        margin-bottom: 0.5rem;
+    }
 }
 .app-view {
     min-height: 0;

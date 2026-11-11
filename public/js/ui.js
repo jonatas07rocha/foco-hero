@@ -99,6 +99,7 @@ export function initializeDOM() {
     dom.autoStartFocusCheckbox = document.getElementById('auto-start-focus');
     dom.notificationsToggleCheckbox = document.getElementById('notifications-toggle');
     dom.soundToggleCheckbox = document.getElementById('sound-toggle');
+    dom.keepScreenAwakeCheckbox = document.getElementById('keep-screen-awake-toggle');
     dom.colorPaletteSelector = document.getElementById('color-palette-selector');
     dom.exportBackupBtn = document.getElementById('export-backup-btn');
     dom.importBackupBtn = document.getElementById('import-backup-btn');

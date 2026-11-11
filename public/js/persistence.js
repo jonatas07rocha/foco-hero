@@ -125,6 +125,7 @@ export function hydrateState(savedState) {
     if (dom.autoStartFocusCheckbox) dom.autoStartFocusCheckbox.checked = Boolean(state.settings.autoStartFocus);
     if (dom.notificationsToggleCheckbox) dom.notificationsToggleCheckbox.checked = Boolean(state.settings.notificationsEnabled);
     if (dom.soundToggleCheckbox) dom.soundToggleCheckbox.checked = state.settings.soundEnabled !== false;
+    if (dom.keepScreenAwakeCheckbox) dom.keepScreenAwakeCheckbox.checked = Boolean(state.settings.keepScreenAwake);
     if (dom.soundMasterVolume) {
         const volPct = Math.round((state.settings.soundscapes?.masterVolume ?? 0.65) * 100);
         dom.soundMasterVolume.value = volPct;

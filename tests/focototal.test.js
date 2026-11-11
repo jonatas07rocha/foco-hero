@@ -62,6 +62,7 @@ function resetTestState() {
         autoStartFocus: false,
         notificationsEnabled: false,
         soundEnabled: false,
+        keepScreenAwake: false,
         soundscapes: {
             masterVolume: 0.65,
             pauseBehavior: 'mute',
@@ -285,4 +286,27 @@ test('theme_effects: efeitos visuais cobrem todos os 16 temas compráveis inclui
 
     assert.doesNotThrow(() => themeEffects.applyThemeEffect('tech_matrix'));
     assert.doesNotThrow(() => themeEffects.applyThemeEffect('brasil_dark'));
+});
+
+test('tasks & persistence: edição rápida de nome/estimativa e keepScreenAwake', async () => {
+    resetTestState();
+    const task = tasks.addTask('Estudar Rust', 2);
+    tasks.toggleEditState(task.id);
+    assert.equal(task.isEditing, true);
+
+    tasks.updateTask(task.id, '  Estudar Rust Async  ', '5');
+    assert.equal(task.name, 'Estudar Rust Async');
+    assert.equal(task.pomodoroEstimate, 5);
+    assert.equal(task.isEditing, false);
+
+    // Ignora valores vazios ou inválidos preservando o que já estava válido
+    tasks.updateTask(task.id, '   ', '0');
+    assert.equal(task.name, 'Estudar Rust Async');
+    assert.equal(task.pomodoroEstimate, 5);
+
+    state.settings.keepScreenAwake = true;
+    await persistence.saveState();
+    state.settings.keepScreenAwake = false;
+    await persistence.loadState();
+    assert.equal(state.settings.keepScreenAwake, true);
 });

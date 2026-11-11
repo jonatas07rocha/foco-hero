@@ -55,6 +55,7 @@ export const state = {
         autoStartFocus: false,
         notificationsEnabled: false,
         soundEnabled: true,
+        keepScreenAwake: false,
         soundscapes: {
             masterVolume: 0.65,
             pauseBehavior: 'mute', // 'mute' | 'duck' | 'continuous'
@@ -84,6 +85,7 @@ export const state = {
 
     // Estado do PWA e Áudio
     deferredInstallPrompt: null,
+    wakeLockSentinel: null,
     audioContext: null,
     audioInitialized: false,
 };

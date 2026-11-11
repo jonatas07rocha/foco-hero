@@ -73,13 +73,26 @@ export function toggleEditState(id) {
     return inputToFocus;
 }
 
-export function updateTaskName(id, newName) {
+export function updateTask(id, newName, newEstimate) {
     const task = state.tasks.find((t) => t.id === id);
-    if (task) {
-        const clean = typeof newName === 'string' ? newName.trim() : '';
-        if (clean) task.name = clean;
-        task.isEditing = false;
+    if (!task) return false;
+
+    const clean = typeof newName === 'string' ? newName.trim() : '';
+    if (clean) task.name = clean;
+
+    if (newEstimate !== undefined && newEstimate !== null && newEstimate !== '') {
+        const parsed = parseInt(newEstimate, 10);
+        if (!Number.isNaN(parsed) && parsed >= 1) {
+            task.pomodoroEstimate = parsed;
+        }
     }
+
+    task.isEditing = false;
+    return true;
+}
+
+export function updateTaskName(id, newName) {
+    return updateTask(id, newName);
 }
 
 export function selectTask(id) {

@@ -48,6 +48,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (state.isRunning) {
             state.timerInterval = setInterval(handleTimerTick, 1000);
             soundEngine.updatePlaybackForTimerState();
+            syncWakeLock();
         }
 
         await saveState();
@@ -56,10 +57,40 @@ document.addEventListener('DOMContentLoaded', () => {
 
         setInterval(handleRolloverCheck, 60000);
         document.addEventListener('visibilitychange', () => {
-            if (!document.hidden) handleRolloverCheck();
+            if (!document.hidden) {
+                handleRolloverCheck();
+                syncWakeLock();
+            }
         });
 
         state.isAppInitialized = true;
+    }
+
+    async function syncWakeLock() {
+        const shouldHold = Boolean(state.settings.keepScreenAwake && state.isRunning && !document.hidden);
+        if (shouldHold) {
+            if (!state.wakeLockSentinel && typeof navigator !== 'undefined' && navigator.wakeLock?.request) {
+                try {
+                    const sentinel = await navigator.wakeLock.request('screen');
+                    state.wakeLockSentinel = sentinel;
+                    sentinel.addEventListener('release', () => {
+                        if (state.wakeLockSentinel === sentinel) {
+                            state.wakeLockSentinel = null;
+                        }
+                    });
+                } catch {
+                    // Ignora caso o navegador recuse por política de energia ou visibilidade
+                }
+            }
+        } else if (state.wakeLockSentinel) {
+            const current = state.wakeLockSentinel;
+            state.wakeLockSentinel = null;
+            try {
+                await current.release();
+            } catch {
+                // Ignora se já tiver sido liberado pelo navegador
+            }
+        }
     }
 
     function navigateTo(viewName) {
@@ -226,6 +257,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         startNextAutoSessionIfEnabled(previousMode);
         soundEngine.updatePlaybackForTimerState();
+        syncWakeLock();
         ui.updateUI();
         ui.renderTasks();
         ui.renderDashboard();
@@ -277,6 +309,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (state.isRunning) {
             timer.pauseTimer();
             soundEngine.updatePlaybackForTimerState();
+            syncWakeLock();
             saveState();
         } else {
             const startResult = timer.startTimer();
@@ -295,6 +328,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
                 state.timerInterval = setInterval(handleTimerTick, 1000);
                 soundEngine.updatePlaybackForTimerState();
+                syncWakeLock();
                 checkGains();
                 saveState();
             }
@@ -482,12 +516,32 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    dom.taskListEl.addEventListener('click', (e) => {
-        if (e.target.matches('.task-edit-input')) return;
+    function openTaskEdit(id) {
+        const inputSelector = tasks.toggleEditState(id);
+        ui.renderTasks();
+        if (inputSelector) {
+            const inputEl = dom.taskListEl.querySelector(inputSelector);
+            if (inputEl) {
+                inputEl.focus();
+                inputEl.select?.();
+            }
+        }
+        saveState();
+    }
 
-        const target = e.target.closest(
-            '[data-id], [data-complete-id], [data-edit-id], [data-delete-id], [data-move-up-id], [data-move-down-id]'
-        );
+    function commitTaskEdit(id) {
+        const taskRow = dom.taskListEl.querySelector(`.task-item[data-id="${id}"]`);
+        if (!taskRow) return;
+        const nameInput = taskRow.querySelector('.task-edit-input');
+        const estInput = taskRow.querySelector('.task-edit-estimate');
+        tasks.updateTask(id, nameInput?.value, estInput?.value);
+        ui.renderTasks();
+        saveState();
+    }
+
+    dom.taskListEl.addEventListener('click', (e) => {
+        if (e.target.matches('.task-edit-input, .task-edit-estimate')) return;
+        const target = e.target.closest('[data-id], [data-complete-id], [data-edit-id], [data-delete-id], [data-move-up-id], [data-move-down-id]');
         if (!target) return;
 
         const id = parseInt(
@@ -519,25 +573,27 @@ document.addEventListener('DOMContentLoaded', () => {
             if (state.isRunning && state.selectedTaskId === id) {
                 timer.pauseTimer();
                 timer.resetTimer('focus');
+                syncWakeLock();
             }
         } else if (target.matches('[data-move-up-id]')) {
             tasks.moveTask(id, 'up');
         } else if (target.matches('[data-move-down-id]')) {
             tasks.moveTask(id, 'down');
         } else if (target.matches('[data-edit-id]')) {
-            const inputSelector = tasks.toggleEditState(id);
-            ui.renderTasks();
-            if (inputSelector) {
-                const inputEl = dom.taskListEl.querySelector(inputSelector);
-                if (inputEl) inputEl.focus();
+            const currentTask = state.tasks.find((t) => t.id === id);
+            if (currentTask?.isEditing) {
+                commitTaskEdit(id);
+            } else {
+                openTaskEdit(id);
             }
-            saveState();
             return;
         } else if (target.matches('[data-delete-id]')) {
             tasks.deleteTask(id);
+            syncWakeLock();
         } else if (target.matches('[data-id]')) {
             tasks.selectTask(id);
             timer.resetTimer('focus');
+            syncWakeLock();
         }
 
         ui.renderTasks();
@@ -546,18 +602,37 @@ document.addEventListener('DOMContentLoaded', () => {
         saveState();
     });
 
+    dom.taskListEl.addEventListener('dblclick', (e) => {
+        const nameEl = e.target.closest('.task-name');
+        const row = e.target.closest('.task-item[data-id]');
+        if (!nameEl || !row) return;
+        openTaskEdit(parseInt(row.dataset.id, 10));
+    });
+
     dom.taskListEl.addEventListener('focusout', (e) => {
-        if (e.target.matches('.task-edit-input')) {
-            const id = parseInt(e.target.dataset.editInputId, 10);
-            tasks.updateTaskName(id, e.target.value.trim());
-            ui.renderTasks();
-            saveState();
-        }
+        if (!e.target.matches('.task-edit-input, .task-edit-estimate')) return;
+        const id = parseInt(e.target.dataset.editInputId || e.target.dataset.editEstimateId, 10);
+        setTimeout(() => {
+            const currentTask = state.tasks.find((t) => t.id === id);
+            if (!currentTask?.isEditing) return;
+            const active = document.activeElement;
+            if (active && active.closest?.(`.task-item[data-id="${id}"]`) && active.matches?.('.task-edit-input, .task-edit-estimate, [data-edit-id]')) {
+                return;
+            }
+            commitTaskEdit(id);
+        }, 0);
     });
 
     dom.taskListEl.addEventListener('keyup', (e) => {
-        if (e.key === 'Enter' && e.target.matches('.task-edit-input')) {
-            e.target.blur();
+        if (!e.target.matches('.task-edit-input, .task-edit-estimate')) return;
+        const id = parseInt(e.target.dataset.editInputId || e.target.dataset.editEstimateId, 10);
+        if (e.key === 'Enter') {
+            commitTaskEdit(id);
+        } else if (e.key === 'Escape') {
+            const currentTask = state.tasks.find((t) => t.id === id);
+            if (currentTask) currentTask.isEditing = false;
+            ui.renderTasks();
+            saveState();
         }
     });
 
@@ -617,11 +692,13 @@ document.addEventListener('DOMContentLoaded', () => {
         state.settings.autoStartBreak = Boolean(dom.autoStartBreakCheckbox?.checked);
         state.settings.autoStartFocus = Boolean(dom.autoStartFocusCheckbox?.checked);
         state.settings.soundEnabled = dom.soundToggleCheckbox ? dom.soundToggleCheckbox.checked : true;
+        state.settings.keepScreenAwake = Boolean(dom.keepScreenAwakeCheckbox?.checked);
 
         if (!state.isRunning && !state.isPaused) {
             timer.resetTimer('focus');
             ui.updateUI();
         }
+        syncWakeLock();
         saveState();
         navigateTo('focus');
     });

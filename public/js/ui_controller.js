@@ -58,8 +58,15 @@ export function renderTasks() {
                 </button>
                 ${
                     task.isEditing
-                        ? `<input type="text" value="${safeName}" class="task-edit-input rounded px-2 py-1 text-sm flex-grow mx-1 border-2 border-primary focus:outline-none" data-edit-input-id="${task.id}" aria-label="Editar nome da tarefa ${safeName}">`
-                        : `<span class="task-name truncate text-sm ${task.completed ? 'line-through' : ''}">${safeName}</span>`
+                        ? `<div class="flex items-center gap-1 flex-grow min-w-0 mx-1">
+                               <input type="text" value="${safeName}" class="task-edit-input rounded px-2 py-1 text-sm flex-grow min-w-0 border-2 border-primary focus:outline-none" data-edit-input-id="${task.id}" aria-label="Editar nome da tarefa ${safeName}">
+                               ${
+                                   state.settings.focusMethod === 'pomodoro'
+                                       ? `<input type="number" min="1" value="${task.pomodoroEstimate}" class="task-edit-estimate w-12 rounded px-1.5 py-1 text-xs text-center font-bold border-2 border-primary focus:outline-none flex-shrink-0" data-edit-estimate-id="${task.id}" title="Estimativa de Pomodoros" aria-label="Editar estimativa de Pomodoros">`
+                                       : ''
+                               }
+                           </div>`
+                        : `<span class="task-name truncate text-sm ${task.completed ? 'line-through' : ''}" title="Duplo clique para editar">${safeName}</span>`
                 }
             </div>
             <div class="flex items-center space-x-0.5 flex-shrink-0">

@@ -1,8 +1,10 @@
-const CACHE_NAME = 'focohero-v2.0.10';
+const CACHE_NAME = 'focohero-v2.0.11';
 
 const CORE_ASSETS = [
     './',
     './index.html',
+    './landing.html',
+    './landing.css',
     './styles.css',
     './manifest.json',
     './icon-180x180.png',

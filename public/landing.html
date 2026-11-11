@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="theme-color" content="#070b14">
+    <meta name="description" content="Foco Hero: timer Pomodoro e Adaptativo 100% offline-first com paisagens sonoras, gamificação, loja de temas animados e instalação PWA.">
+    <link rel="icon" href="./icon-192x192.png" type="image/png">
+    <link rel="apple-touch-icon" sizes="180x180" href="./icon-180x180.png">
+    <link rel="stylesheet" href="./landing.css">
+    <title>Foco Hero — Produtividade Offline-First com Gamificação</title>
+</head>
+<body>
+    <canvas id="theme-effects-canvas" class="hidden" aria-hidden="true"></canvas>
+
+    <div class="lp-shell">
+        <header class="lp-nav">
+            <a href="./" class="lp-brand">
+                <img src="./icon-192x192.png" alt="Logo Foco Hero">
+                <span>Foco Hero</span>
+            </a>
+            <nav class="lp-nav-links" aria-label="Navegação da página inicial">
+                <a href="#recursos">Recursos</a>
+                <a href="#paisagens">Áudio &amp; Temas</a>
+                <a href="#pwa">Instalar PWA</a>
+                <a href="./" class="lp-btn lp-btn-primary lp-btn-sm">
+                    <i data-lucide="play" class="w-4 h-4"></i>
+                    Abrir App
+                </a>
+            </nav>
+        </header>
+
+        <main>
+            <section class="lp-hero">
+                <div>
+                    <span class="lp-badge">
+                        <i data-lucide="shield" class="w-4 h-4"></i>
+                        100% Offline-First • Zero Login • PWA
+                    </span>
+                    <h1>Foco profundo, paisagens sonoras e gamificação em um único card.</h1>
+                    <p class="lp-hero-subtitle">
+                        Combine ciclos Pomodoro ou cronômetro Adaptativo com sons gerados localmente no navegador, missões diárias, painel analítico e 16 temas animados — tudo rodando direto no seu dispositivo, mesmo sem internet.
+                    </p>
+                    <div class="lp-actions">
+                        <a href="./" class="lp-btn lp-btn-primary">
+                            <i data-lucide="timer" class="w-5 h-5"></i>
+                            Iniciar Sessão no Foco Hero
+                        </a>
+                        <a href="https://github.com/jonatas07rocha/foco-hero" target="_blank" rel="noopener noreferrer" class="lp-btn lp-btn-secondary">
+                            <i data-lucide="compass" class="w-5 h-5"></i>
+                            Ver Código no GitHub
+                        </a>
+                    </div>
+                    <div class="lp-stats-row">
+                        <div class="lp-stat">
+                            <strong>47 Temas</strong>
+                            <span>31 gratuitos + 16 animados</span>
+                        </div>
+                        <div class="lp-stat">
+                            <strong>9 Paisagens + MP3</strong>
+                            <span>Web Audio API + faixas próprias</span>
+                        </div>
+                        <div class="lp-stat">
+                            <strong>Zero Servidor</strong>
+                            <span>IndexedDB + backup JSON</span>
+                        </div>
+                    </div>
+                </div>
+
+                <aside class="lp-preview-card" aria-label="Prévia interativa de efeitos visuais">
+                    <div class="lp-preview-top">
+                        <span>Prévia ao Vivo — Efeitos ao Redor</span>
+                        <div class="lp-preview-metrics">
+                            <span>Nível 12</span>
+                            <span>•</span>
+                            <span>420 Moedas</span>
+                        </div>
+                    </div>
+
+                    <div class="lp-preview-ring-wrap">
+                        <div class="lp-preview-ring">
+                            <span class="lp-preview-time">25:00</span>
+                            <span class="lp-preview-tag">Modo Pomodoro</span>
+                        </div>
+                        <p style="font-size: 0.85rem; color: #d1d5db;">
+                            Clique abaixo para testar os efeitos de fundo reais do app ao redor deste card:
+                        </p>
+                        <div class="lp-effect-switcher" role="group" aria-label="Selecionar efeito visual de demonstração">
+                            <button type="button" class="lp-effect-btn active" data-demo-effect="tech_matrix">Matriz</button>
+                            <button type="button" class="lp-effect-btn" data-demo-effect="tech_cyberpunk">Cyberpunk</button>
+                            <button type="button" class="lp-effect-btn" data-demo-effect="abstrato_estrelas">Estrelas</button>
+                            <button type="button" class="lp-effect-btn" data-demo-effect="seasonal_natal">Natal</button>
+                            <button type="button" class="lp-effect-btn" data-demo-effect="brasil_dark">Limpo</button>
+                        </div>
+                    </div>
+
+                    <div style="display:flex; justify-content:space-between; align-items:center; gap:0.75rem; font-size:0.82rem; color:#9ca3af;">
+                        <span>Visor inteligente integrado</span>
+                        <span>Sem pop-ups externos</span>
+                    </div>
+                </aside>
+            </section>
+
+            <section id="recursos" class="lp-section">
+                <div class="lp-section-header">
+                    <h2>Projetado para manter você no fluxo</h2>
+                    <p>Interface estável dentro de um único card com 5 abas rápidas (Foco, Painel, Loja, Ajustes e Ajuda).</p>
+                </div>
+
+                <div class="lp-grid-3">
+                    <article class="lp-card">
+                        <div class="lp-card-icon"><i data-lucide="timer" class="w-5 h-5"></i></div>
+                        <h3>Pomodoro &amp; Adaptativo</h3>
+                        <p>Alterne entre blocos clássicos cronometrados ou cronômetro progressivo com pausa sem encerrar para sessões longas de Deep Work.</p>
+                    </article>
+                    <article class="lp-card">
+                        <div class="lp-card-icon"><i data-lucide="bell" class="w-5 h-5"></i></div>
+                        <h3>Visor Inteligente</h3>
+                        <p>Avisos de fim de sessão, missões concluídas, conquistas e nível aparecem no próprio visor do timer, sem janelas sobrepondo a tela.</p>
+                    </article>
+                    <article class="lp-card">
+                        <div class="lp-card-icon"><i data-lucide="list-plus" class="w-5 h-5"></i></div>
+                        <h3>Tarefas Enxutas</h3>
+                        <p>Adicione estimativas, reordene prioridades, edite rapidamente com duplo-clique e registre interrupções internas e externas.</p>
+                    </article>
+                    <article class="lp-card">
+                        <div class="lp-card-icon"><i data-lucide="trophy" class="w-5 h-5"></i></div>
+                        <h3>Gamificação Completa</h3>
+                        <p>Ganhe XP e moedas proporcionais ao tempo focado, complete missões diárias e secretas, destrave 17 conquistas e use Escudos de Sequência.</p>
+                    </article>
+                    <article class="lp-card">
+                        <div class="lp-card-icon"><i data-lucide="layout-dashboard" class="w-5 h-5"></i></div>
+                        <h3>Analytics Multi-Dias</h3>
+                        <p>Acompanhe seu gráfico semanal de 7 dias, histórico diário e taxa de foco com virada de dia automática mantendo tarefas pendentes.</p>
+                    </article>
+                    <article class="lp-card">
+                        <div class="lp-card-icon"><i data-lucide="maximize-2" class="w-5 h-5"></i></div>
+                        <h3>Modo Zen &amp; Wake Lock</h3>
+                        <p>Oculte distrações em um clique e ative a opção para impedir que a tela do celular apague durante a sessão de foco.</p>
+                    </article>
+                </div>
+            </section>
+
+            <section id="paisagens" class="lp-section">
+                <div class="lp-grid-2">
+                    <div class="lp-card">
+                        <div class="lp-card-icon"><i data-lucide="headphones" class="w-5 h-5"></i></div>
+                        <h3>Mixer de Paisagens Sonoras</h3>
+                        <p>Combine camadas sonoras sintetizadas offline via Web Audio API ou envie seus próprios arquivos de áudio salvos no IndexedDB.</p>
+                        <ul class="lp-list">
+                            <li><i data-lucide="check-circle-2" class="w-4 h-4"></i><span>5 sons gratuitos (Chuva, Vento, Ruídos Marrom, Rosa e Branco)</span></li>
+                            <li><i data-lucide="check-circle-2" class="w-4 h-4"></i><span>4 sons extras na Loja (Lareira, Ondas do Mar, Onda Alfa 10Hz, Synth Drone)</span></li>
+                            <li><i data-lucide="check-circle-2" class="w-4 h-4"></i><span>Comportamento configurável nas pausas: silenciar, abaixar 25% ou contínuo</span></li>
+                            <li><i data-lucide="check-circle-2" class="w-4 h-4"></i><span>Sincronização automática sugerida de acordo com o tema ativo</span></li>
+                        </ul>
+                    </div>
+
+                    <div class="lp-card">
+                        <div class="lp-card-icon"><i data-lucide="palette" class="w-5 h-5"></i></div>
+                        <h3>47 Temas + 16 Efeitos Animados</h3>
+                        <p>Personalize completamente o ambiente visual com paletas gratuitas de todos os estados brasileiros e coleções exclusivas na Loja.</p>
+                        <ul class="lp-list">
+                            <li><i data-lucide="check-circle-2" class="w-4 h-4"></i><span>Tema Matriz com chuva clássica de caracteres ao redor do app</span></li>
+                            <li><i data-lucide="check-circle-2" class="w-4 h-4"></i><span>Preview ao vivo de 10 segundos na Loja antes de gastar moedas</span></li>
+                            <li><i data-lucide="check-circle-2" class="w-4 h-4"></i><span>Coleções Natureza, Minimalista/Abstrato, Tecnologia e Sazonais reais</span></li>
+                            <li><i data-lucide="check-circle-2" class="w-4 h-4"></i><span>Temas Glass Escuro e Claro com desfoque translúcido</span></li>
+                        </ul>
+                    </div>
+                </div>
+            </section>
+
+            <section id="pwa" class="lp-section">
+                <div class="lp-cta-box">
+                    <h2>Pronto para usar no navegador ou instalar como aplicativo</h2>
+                    <p>
+                        No Chrome ou Edge, clique no ícone de instalar na barra de endereços. No iPhone (Safari), toque em Compartilhar e escolha "Adicionar à Tela de Início". Seus dados ficam salvos no aparelho e podem ser exportados em JSON a qualquer momento.
+                    </p>
+                    <div class="lp-actions" style="justify-content:center; margin-bottom:0;">
+                        <a href="./" class="lp-btn lp-btn-primary">
+                            <i data-lucide="rocket" class="w-5 h-5"></i>
+                            Abrir o Foco Hero Agora
+                        </a>
+                    </div>
+                </div>
+            </section>
+        </main>
+
+        <footer class="lp-footer">
+            <span>Foco Hero v2.0 — Licença MIT • Feito por Jônatas Rocha</span>
+            <div style="display:flex; gap:1.25rem;">
+                <a href="./">Aplicativo</a>
+                <a href="https://github.com/jonatas07rocha/foco-hero" target="_blank" rel="noopener noreferrer">GitHub</a>
+            </div>
+        </footer>
+    </div>
+
+    <script type="module">
+        import { renderIcons } from './js/icons.js';
+        import { applyThemeEffect } from './js/theme_effects.js';
+
+        renderIcons(document);
+        applyThemeEffect('tech_matrix');
+
+        const buttons = document.querySelectorAll('[data-demo-effect]');
+        buttons.forEach((btn) => {
+            btn.addEventListener('click', () => {
+                buttons.forEach((b) => b.classList.toggle('active', b === btn));
+                applyThemeEffect(btn.dataset.demoEffect);
+            });
+        });
+    </script>
+</body>
+</html>

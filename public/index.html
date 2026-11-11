@@ -1,0 +1,395 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, maximum-scale=1.0">
+    <meta id="theme-color-meta" name="theme-color" content="#1F2937">
+    <link rel="apple-touch-icon" sizes="180x180" href="icon-180x180.png">
+    <link rel="apple-touch-icon" href="icon-192x192.png">
+    <link rel="manifest" href="manifest.json">
+    <link id="favicon" rel="icon" href="icon-192x192.png" type="image/png">
+    <link rel="stylesheet" href="styles.css">
+    <title>Foco Total</title>
+</head>
+<body>
+    <div id="app-container">
+        <div id="device-shell" class="device-shell">
+            <!-- HEADER -->
+            <header class="flex justify-between items-center mb-2 flex-shrink-0 gap-2">
+                <div class="flex items-center space-x-3">
+                    <div class="flex items-center space-x-1" title="Moedas">
+                        <i data-lucide="circle-dollar-sign" class="w-5 h-5 text-coin"></i>
+                        <span id="coins-display" class="font-bold text-sm">0</span>
+                    </div>
+                    <div class="flex items-center space-x-1" title="Sequência de Foco Diário">
+                        <i data-lucide="flame" class="w-5 h-5 text-streak"></i>
+                        <span id="streak-display" class="font-bold text-sm">0</span>
+                    </div>
+                    <div class="flex items-center space-x-1" title="Escudos de Sequência">
+                        <i data-lucide="shield" class="w-4 h-4 text-primary-light"></i>
+                        <span id="streak-freezes-display" class="font-bold text-xs">0</span>
+                    </div>
+                </div>
+                <div class="flex items-center gap-1.5">
+                    <div id="focus-method-toggle" class="flex rounded-lg p-1 text-xs font-semibold zen-hidden">
+                        <button type="button" data-method="pomodoro" class="method-btn px-2.5 py-1 rounded-md transition-colors" aria-label="Selecionar modo Pomodoro">Pomodoro</button>
+                        <button type="button" data-method="adaptativo" class="method-btn px-2.5 py-1 rounded-md transition-colors" aria-label="Selecionar modo Adaptativo">Adaptativo</button>
+                    </div>
+                    <button type="button" id="zen-mode-btn" class="text-muted hover:text-white p-1.5 rounded-lg bg-gray-800 transition-colors" title="Modo Zen" aria-label="Ativar Modo Zen">
+                        <i data-lucide="maximize-2" class="w-4 h-4"></i>
+                    </button>
+                </div>
+            </header>
+
+            <h1 class="text-xl font-bold text-center mb-2">Foco Total</h1>
+
+            <!-- Gamification UI -->
+            <div id="gamification-status" class="mb-4 px-1 zen-hidden">
+                <div class="flex justify-between items-center mb-1">
+                    <span class="font-bold text-sm">Nível <span id="level-display">1</span></span>
+                    <span class="text-xs text-muted"><span id="xp-display">0</span> / <span id="xp-next-level-display">100</span> XP</span>
+                </div>
+                <div class="w-full bg-gray-700 rounded-full h-2.5">
+                    <div id="xp-bar-fill" class="h-2.5 rounded-full" style="width: 0%"></div>
+                </div>
+            </div>
+
+            <!-- Timer -->
+            <div class="timer-panel flex-shrink-0">
+                <div class="relative w-56 h-56 mx-auto">
+                    <svg class="w-full h-full" viewBox="0 0 100 100">
+                        <circle class="text-gray-800" stroke-width="7" stroke="currentColor" fill="transparent" r="45" cx="50" cy="50" />
+                        <circle id="progress-ring" class="text-primary" stroke-width="7" stroke-linecap="round" stroke="currentColor" fill="transparent" r="45" cx="50" cy="50" style="transform: rotate(-90deg); transform-origin: center;" />
+                    </svg>
+                    <div id="timer-display" class="absolute inset-0 flex items-center justify-center text-5xl font-bold">
+                        25:00
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tarefa atual & ciclos -->
+            <div class="text-center mb-2 flex-shrink-0">
+                <p class="text-muted text-sm">Foco em:</p>
+                <p id="current-task-display" class="font-semibold text-base truncate">Nenhuma tarefa selecionada</p>
+                <div id="pomodoro-cycles" class="flex justify-center items-center space-x-2 mt-1 h-6"></div>
+            </div>
+
+            <!-- Player Controls -->
+            <div id="player-controls" class="flex items-center justify-center space-x-3 mb-4 flex-shrink-0">
+                <button type="button" id="internal-interrupt-btn" class="bg-gray-600 hover:bg-gray-700 text-white p-3.5 rounded-full transition-colors transform hover:scale-110" title="Registrar Interrupção Interna" aria-label="Registrar Interrupção Interna">
+                    <i data-lucide="zap-off" class="w-5 h-5"></i>
+                </button>
+                <button type="button" id="start-pause-btn" class="w-20 h-20 text-white font-bold rounded-full text-base transition-all duration-300 transform hover:scale-105 shadow-lg flex items-center justify-center" aria-label="Iniciar/Pausar Timer">
+                    <i data-lucide="play" class="w-8 h-8 pl-1"></i>
+                </button>
+                <button type="button" id="finish-adaptive-btn" class="bg-red-600 hover:bg-red-700 text-white p-3.5 rounded-full transition-colors transform hover:scale-110 hidden" title="Finalizar Sessão Adaptativa" aria-label="Finalizar Sessão Adaptativa">
+                    <i data-lucide="square" class="w-5 h-5"></i>
+                </button>
+                <button type="button" id="external-interrupt-btn" class="bg-gray-600 hover:bg-gray-700 text-white p-3.5 rounded-full transition-colors transform hover:scale-110" title="Registrar Interrupção Externa" aria-label="Registrar Interrupção Externa">
+                    <i data-lucide="user-x" class="w-5 h-5"></i>
+                </button>
+            </div>
+
+            <!-- Painel de Tarefas -->
+            <div class="flex-grow flex flex-col zen-hidden">
+                <div class="flex justify-between items-center mb-2 flex-shrink-0">
+                    <h2 class="text-base font-semibold">Lista de Tarefas do Dia</h2>
+                    <button type="button" id="toggle-completed-tasks-btn" class="bg-gray-700 hover:bg-gray-600 text-white text-xs px-3 py-1 rounded-md transition-colors" aria-label="Mostrar ou esconder tarefas concluídas">Mostrar Concluídas</button>
+                </div>
+
+                <!-- Filtro por Tag -->
+                <div id="task-tag-filter" class="flex flex-wrap gap-1.5 mb-2"></div>
+
+                <div id="task-list" class="flex-grow space-y-2 pr-2"></div>
+
+                <div class="task-input-panel flex flex-col mt-3 gap-2 p-2 rounded-lg flex-shrink-0">
+                    <div class="flex space-x-2 items-center">
+                        <input type="text" id="new-task-input" class="flex-grow rounded-lg px-3 py-2 text-sm border-2 border-transparent focus:border-primary focus:outline-none min-w-0" placeholder="Adicionar nova tarefa..." aria-label="Nome da nova tarefa">
+                        <select id="new-task-tag" class="rounded-lg px-2 py-2 text-xs font-semibold border-2 border-transparent focus:border-primary focus:outline-none" aria-label="Categoria da tarefa">
+                            <option value="Geral">Geral</option>
+                            <option value="Estudo">Estudo</option>
+                            <option value="Trabalho">Trabalho</option>
+                            <option value="Projeto">Projeto</option>
+                            <option value="Pessoal">Pessoal</option>
+                        </select>
+                        <div class="flex items-center">
+                            <label for="new-task-estimate" id="new-task-estimate-label" class="text-sm text-muted mr-1 font-bold">#</label>
+                            <input type="number" id="new-task-estimate" class="w-10 rounded-lg p-2 text-center font-bold border-2 border-transparent focus:border-primary focus:outline-none text-sm" value="1" min="1" aria-label="Estimativa de pomodoros">
+                        </div>
+                        <button type="button" id="add-task-btn" class="bg-primary-focus hover:bg-primary-darker text-white font-bold w-10 h-10 rounded-lg transition-colors text-2xl flex-shrink-0 flex items-center justify-center" aria-label="Adicionar tarefa">+</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Controles Secundários -->
+            <div id="secondary-controls" class="flex items-center justify-center space-x-6 mt-4 flex-shrink-0 zen-hidden">
+                <button type="button" id="reset-btn" class="text-muted hover:text-white p-2 rounded-full transition-colors" title="Encerrar e Arquivar o Dia" aria-label="Encerrar o dia">
+                    <i data-lucide="calendar-check" class="w-5 h-5"></i>
+                </button>
+                <button type="button" id="dashboard-btn" class="text-muted hover:text-white p-2 rounded-full transition-colors" title="Ver Dashboard & Histórico" aria-label="Ver Dashboard">
+                    <i data-lucide="layout-dashboard" class="w-5 h-5"></i>
+                </button>
+                <button type="button" id="shop-btn" class="text-muted hover:text-white p-2 rounded-full transition-colors" title="Loja de Temas e Escudos" aria-label="Abrir Loja">
+                    <i data-lucide="shopping-cart" class="w-5 h-5"></i>
+                </button>
+                <button type="button" id="settings-btn" class="text-muted hover:text-white p-2 rounded-full transition-colors" title="Configurações e Backup" aria-label="Configurações">
+                    <i data-lucide="settings-2" class="w-5 h-5"></i>
+                </button>
+                <button type="button" id="help-btn" class="text-muted hover:text-white p-2 rounded-full transition-colors" title="Ajuda e Atalhos" aria-label="Ajuda">
+                    <i data-lucide="help-circle" class="w-5 h-5"></i>
+                </button>
+            </div>
+        </div>
+
+        <!-- Modals -->
+        <div id="alert-modal-overlay" class="modal-overlay">
+            <div class="modal-content text-center modal-border-primary">
+                <p id="alert-modal-message" class="mb-4"></p>
+                <button type="button" id="alert-modal-close-btn" class="bg-primary-focus hover:bg-primary-darker text-white font-bold py-2 px-6 rounded-lg transition-colors" aria-label="Fechar alerta">OK</button>
+            </div>
+        </div>
+
+        <div id="session-end-modal-overlay" class="modal-overlay">
+            <div class="modal-content text-center modal-border-primary">
+                <h2 class="text-xl font-bold mb-2">Sessão Finalizada!</h2>
+                <p id="session-end-message" class="mb-4 text-muted"></p>
+                <div class="flex justify-center items-center space-x-4">
+                    <div id="xp-gain-display" class="font-bold text-lg" style="color: rgb(var(--color-xp-bar));"></div>
+                    <div id="coin-gain-display" class="font-bold text-lg text-coin"></div>
+                </div>
+                <button type="button" id="session-end-close-btn" class="bg-primary-focus hover:bg-primary-darker text-white font-bold py-2 px-6 rounded-lg transition-colors mt-4" aria-label="Fechar modal de fim de sessão">Ótimo!</button>
+            </div>
+        </div>
+
+        <!-- Configurações + Backup -->
+        <div id="settings-modal-overlay" class="modal-overlay">
+            <div class="modal-content modal-border-primary">
+                <h2 class="text-xl font-bold mb-4 text-center">Configurações</h2>
+                <div class="mb-4">
+                    <h3 class="text-base font-semibold text-primary-light mb-2">Tema da Interface</h3>
+                    <div id="color-palette-selector" class="grid grid-cols-3 sm:grid-cols-5 gap-3 p-2 rounded-lg"></div>
+                </div>
+
+                <div class="mb-4">
+                    <h3 class="text-base font-semibold text-primary-light mb-2">Duração (minutos)</h3>
+                    <div class="grid grid-cols-3 gap-2 text-center">
+                        <div>
+                            <label for="focus-duration" class="block text-xs font-medium text-muted">Foco</label>
+                            <input type="number" id="focus-duration" class="mt-1 w-full rounded-lg p-2 text-center font-bold border-2 border-transparent focus:border-primary focus:outline-none" value="25" min="1">
+                        </div>
+                        <div>
+                            <label for="short-break-duration" class="block text-xs font-medium text-muted">Pausa Curta</label>
+                            <input type="number" id="short-break-duration" class="mt-1 w-full rounded-lg p-2 text-center font-bold border-2 border-transparent focus:border-primary focus:outline-none" value="5" min="1">
+                        </div>
+                        <div>
+                            <label for="long-break-duration" class="block text-xs font-medium text-muted">Pausa Longa</label>
+                            <input type="number" id="long-break-duration" class="mt-1 w-full rounded-lg p-2 text-center font-bold border-2 border-transparent focus:border-primary focus:outline-none" value="15" min="1">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mb-4">
+                    <label for="long-break-interval" class="block text-xs font-medium text-muted">Pomodoros para pausa longa</label>
+                    <input type="number" id="long-break-interval" class="mt-1 w-full rounded-lg p-2 text-center font-bold border-2 border-transparent focus:border-primary focus:outline-none" value="4" min="1">
+                </div>
+
+                <div class="mb-4 space-y-2">
+                    <h3 class="text-base font-semibold text-primary-light mb-1">Automação e Alertas</h3>
+                    <label class="flex items-center justify-between text-sm bg-gray-800/70 p-2.5 rounded-lg cursor-pointer">
+                        <span>Iniciar pausa automaticamente</span>
+                        <input type="checkbox" id="auto-start-break">
+                    </label>
+                    <label class="flex items-center justify-between text-sm bg-gray-800/70 p-2.5 rounded-lg cursor-pointer">
+                        <span>Iniciar próximo foco automaticamente</span>
+                        <input type="checkbox" id="auto-start-focus">
+                    </label>
+                    <label class="flex items-center justify-between text-sm bg-gray-800/70 p-2.5 rounded-lg cursor-pointer">
+                        <span>Notificações do navegador</span>
+                        <input type="checkbox" id="notifications-toggle">
+                    </label>
+                    <label class="flex items-center justify-between text-sm bg-gray-800/70 p-2.5 rounded-lg cursor-pointer">
+                        <span>Efeitos sonoros</span>
+                        <input type="checkbox" id="sound-toggle" checked>
+                    </label>
+                </div>
+
+                <div class="mb-4">
+                    <h3 class="text-base font-semibold text-primary-light mb-2">Backup Local (JSON)</h3>
+                    <div class="grid grid-cols-2 gap-2">
+                        <button type="button" id="export-backup-btn" class="bg-gray-700 hover:bg-gray-600 text-white text-xs font-bold py-2 px-3 rounded-lg flex items-center justify-center gap-1.5">
+                            <i data-lucide="download" class="w-4 h-4"></i> Exportar Dados
+                        </button>
+                        <button type="button" id="import-backup-btn" class="bg-gray-700 hover:bg-gray-600 text-white text-xs font-bold py-2 px-3 rounded-lg flex items-center justify-center gap-1.5">
+                            <i data-lucide="upload" class="w-4 h-4"></i> Importar Dados
+                        </button>
+                    </div>
+                    <input type="file" id="import-backup-input" accept="application/json" class="hidden">
+                </div>
+
+                <button type="button" id="settings-save-btn" class="w-full bg-primary-focus hover:bg-primary-darker text-white font-bold py-3 rounded-xl mt-2 transition-colors text-sm">
+                    Salvar e Fechar
+                </button>
+            </div>
+        </div>
+
+        <!-- Dashboard Modal (Largo no Desktop) -->
+        <div id="dashboard-modal-overlay" class="modal-overlay">
+            <div class="modal-content modal-wide modal-border-primary">
+                <h2 class="text-xl font-bold mb-4 text-center">Dashboard & Histórico</h2>
+
+                <div class="flex justify-center mb-4 rounded-lg p-1 text-sm font-semibold bg-gray-800">
+                    <button type="button" data-tab="stats" class="dashboard-tab flex-1 px-3 py-2 rounded-md transition-colors active">Estatísticas</button>
+                    <button type="button" data-tab="missions" class="dashboard-tab flex-1 px-3 py-2 rounded-md transition-colors">Missões</button>
+                    <button type="button" data-tab="achievements" class="dashboard-tab flex-1 px-3 py-2 rounded-md transition-colors">Conquistas</button>
+                </div>
+
+                <div id="dashboard-stats-content" class="dashboard-tab-content space-y-4">
+                    <div class="dashboard-card p-4 rounded-lg">
+                        <h3 class="text-base font-semibold text-primary-light mb-3">Consistência</h3>
+                        <div class="grid grid-cols-3 gap-3 text-center">
+                            <div>
+                                <p class="text-2xl font-bold text-streak" id="dashboard-current-streak">0</p>
+                                <p class="text-xs text-muted">Sequência Atual</p>
+                            </div>
+                            <div>
+                                <p class="text-2xl font-bold" id="dashboard-longest-streak">0</p>
+                                <p class="text-xs text-muted">Maior Sequência</p>
+                            </div>
+                            <div>
+                                <p class="text-2xl font-bold text-primary-light" id="dashboard-freezes-count">0</p>
+                                <p class="text-xs text-muted">Escudos</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="dashboard-card p-4 rounded-lg">
+                        <h3 class="text-base font-semibold text-primary-light mb-3">Últimos 7 Dias</h3>
+                        <div id="dashboard-weekly-summary" class="grid grid-cols-3 gap-2 mb-4"></div>
+                        <div id="dashboard-weekly-chart" class="flex items-end justify-between gap-2 h-32 p-2 bg-gray-800/70 rounded-lg"></div>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-3">
+                        <div class="dashboard-card p-3 rounded-lg">
+                            <h3 class="text-sm font-semibold text-primary-light mb-2">Interrupções (7d)</h3>
+                            <div id="dashboard-interruptions-summary"></div>
+                        </div>
+                        <div class="dashboard-card p-3 rounded-lg">
+                            <h3 class="text-sm font-semibold text-primary-light mb-2">Por Categoria (7d)</h3>
+                            <div id="dashboard-tags-summary" class="space-y-1.5"></div>
+                        </div>
+                    </div>
+
+                    <div class="dashboard-card p-4 rounded-lg">
+                        <h3 class="text-base font-semibold text-primary-light mb-3">Relatório Detalhado de Hoje</h3>
+                        <div id="dashboard-daily-report" class="space-y-3"></div>
+                    </div>
+                </div>
+
+                <div id="dashboard-missions-content" class="dashboard-tab-content hidden space-y-3 max-h-80 overflow-y-auto p-2"></div>
+                <div id="dashboard-achievements-content" class="dashboard-tab-content hidden space-y-3 max-h-80 overflow-y-auto p-2"></div>
+
+                <button type="button" id="dashboard-modal-close-btn" class="w-full bg-gray-600 hover:bg-gray-700 text-white font-bold py-2 rounded-xl mt-6 transition-colors">Fechar</button>
+            </div>
+        </div>
+
+        <!-- Shop Modal -->
+        <div id="shop-modal-overlay" class="modal-overlay">
+            <div class="modal-content modal-wide modal-border-primary">
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="text-xl font-bold">Loja do Foco</h2>
+                    <div class="flex items-center gap-2">
+                        <div class="flex items-center space-x-1 bg-gray-800 px-2.5 py-1 rounded-full" title="Escudos de Sequência">
+                            <i data-lucide="shield" class="w-4 h-4 text-primary-light"></i>
+                            <span id="shop-freezes-display" class="font-bold text-sm text-white">0</span>
+                        </div>
+                        <div class="flex items-center space-x-1 bg-gray-800 px-3 py-1 rounded-full" title="Moedas">
+                            <i data-lucide="circle-dollar-sign" class="w-5 h-5 text-coin"></i>
+                            <span id="shop-coins-display" class="font-bold text-sm text-white">0</span>
+                        </div>
+                    </div>
+                </div>
+                <div id="shop-collections-container" class="space-y-6 max-h-96 overflow-y-auto p-2 -mr-4 pr-4"></div>
+                <button type="button" id="shop-modal-close-btn" class="w-full bg-gray-600 hover:bg-gray-700 text-white font-bold py-2 rounded-xl mt-6 transition-colors">Fechar</button>
+            </div>
+        </div>
+
+        <!-- Help Modal -->
+        <div id="help-modal-overlay" class="modal-overlay">
+            <div class="modal-content text-sm modal-border-primary space-y-4">
+                <h2 class="text-xl font-bold text-center">Ajuda & Atalhos</h2>
+                <div id="help-content-pomodoro" class="space-y-2">
+                    <h3 class="text-base font-semibold text-primary-light">Técnica Pomodoro</h3>
+                    <p>Trabalhe em blocos cronometrados (padrão 25 min) com pausas curtas e uma pausa longa após 4 ciclos.</p>
+                </div>
+                <div id="help-content-adaptativo" class="space-y-2 hidden">
+                    <h3 class="text-base font-semibold text-primary-light">Método Adaptativo</h3>
+                    <p>O cronômetro conta para cima sem limite fixo. Você pode pausar sem encerrar a sessão e finalizar no botão quadrado vermelho quando concluir.</p>
+                </div>
+                <div class="space-y-1.5">
+                    <h3 class="text-base font-semibold text-primary-light">Atalhos de Teclado</h3>
+                    <p><span class="font-bold">Espaço:</span> Iniciar / Pausar timer</p>
+                    <p><span class="font-bold">N:</span> Focar campo de nova tarefa</p>
+                    <p><span class="font-bold">Esc:</span> Fechar modal ou sair do Modo Zen</p>
+                </div>
+                <div class="space-y-1.5">
+                    <h3 class="text-base font-semibold text-primary-light">Escudo de Sequência</h3>
+                    <p class="text-muted">Comprável na Loja com moedas, protege automaticamente sua sequência de dias caso você falhe um dia.</p>
+                </div>
+                <button type="button" id="help-modal-close-btn" class="w-full bg-primary-focus hover:bg-primary-darker text-white font-bold py-2 rounded-xl transition-colors">Entendi!</button>
+            </div>
+        </div>
+
+        <!-- Archive / End Day Modal -->
+        <div id="reset-confirm-modal-overlay" class="modal-overlay">
+            <div class="modal-content text-center">
+                <h2 class="text-xl font-bold mb-2">Encerrar o Dia?</h2>
+                <p id="alert-modal-message-reset" class="mb-6 text-muted">O progresso de hoje será salvo no histórico semanal. Seu nível, XP, moedas e conquistas serão mantidos.</p>
+                <div class="flex flex-col space-y-2">
+                    <button type="button" id="reset-confirm-keep-btn" class="bg-primary-focus hover:bg-primary-darker text-white font-bold py-2.5 px-4 rounded-lg transition-colors">Arquivar e Manter Tarefas Pendentes</button>
+                    <button type="button" id="reset-confirm-clear-btn" class="bg-red-600 hover:bg-red-700 text-white font-bold py-2.5 px-4 rounded-lg transition-colors">Arquivar e Limpar Lista</button>
+                    <button type="button" id="reset-cancel-btn" class="bg-gray-600 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded-lg transition-colors">Cancelar</button>
+                </div>
+            </div>
+        </div>
+
+        <div id="ios-start-prompt-modal-overlay" class="modal-overlay">
+            <div class="modal-content text-center">
+                <h2 id="ios-prompt-title" class="text-xl font-bold mb-2">Notificação no iOS</h2>
+                <p id="ios-prompt-message" class="mb-6 text-muted">Para garantir o alarme no final desta sessão, recomendamos criar um lembrete.</p>
+                <div class="flex justify-center space-x-4">
+                    <button type="button" id="ios-prompt-cancel-btn" class="bg-gray-600 hover:bg-gray-700 text-white font-bold py-2 px-6 rounded-lg transition-colors">Iniciar Direto</button>
+                    <button type="button" id="ios-prompt-confirm-btn" class="bg-primary-focus hover:bg-primary-darker text-white font-bold py-2 px-6 rounded-lg transition-colors">Criar Lembrete</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Toast Notifications -->
+        <div id="achievement-toast" class="toast-notification">
+            <span class="text-2xl mr-4">🏆</span>
+            <div>
+                <p class="font-bold">Conquista Desbloqueada!</p>
+                <p id="achievement-toast-name" class="text-sm"></p>
+            </div>
+        </div>
+        <div id="mission-toast" class="toast-notification">
+            <span id="mission-toast-emoji" class="text-2xl mr-4">🎯</span>
+            <div>
+                <p class="font-bold">Missão Cumprida!</p>
+                <p id="mission-toast-name" class="text-sm"></p>
+            </div>
+        </div>
+
+        <!-- Banner PWA -->
+        <div id="install-banner" class="install-banner-theme">
+            <div class="max-w-md mx-auto">
+                <p class="font-semibold mb-2">Instale o Foco Total!</p>
+                <p class="text-sm mb-3">Adicione à sua tela inicial para usar offline como um aplicativo nativo.</p>
+                <button type="button" id="install-btn" class="font-bold py-2 px-5 rounded-lg mr-2">Instalar</button>
+                <button type="button" id="install-dismiss-btn" class="bg-transparent border border-white text-white font-bold py-2 px-5 rounded-lg">Agora não</button>
+            </div>
+        </div>
+    </div>
+
+    <script type="module" src="./js/main.js"></script>
+</body>
+</html>

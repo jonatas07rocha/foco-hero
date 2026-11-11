@@ -1,0 +1,77 @@
+const CACHE_NAME = 'focototal-v2.0.0';
+
+const CORE_ASSETS = [
+    './',
+    './index.html',
+    './styles.css',
+    './manifest.json',
+    './icon-180x180.png',
+    './icon-192x192.png',
+    './icon-512x512.png',
+    './js/main.js',
+    './js/state.js',
+    './js/db.js',
+    './js/persistence.js',
+    './js/timer.js',
+    './js/tasks.js',
+    './js/gamification.js',
+    './js/analytics.js',
+    './js/shop.js',
+    './js/shop_logic.js',
+    './js/themes.js',
+    './js/achievements.js',
+    './js/missions.js',
+    './js/audio.js',
+    './js/notifications.js',
+    './js/icons.js',
+    './js/ui.js',
+    './js/ui_controller.js'
+];
+
+self.addEventListener('install', (event) => {
+    event.waitUntil(
+        caches.open(CACHE_NAME)
+            .then((cache) => cache.addAll(CORE_ASSETS))
+            .then(() => self.skipWaiting())
+    );
+});
+
+self.addEventListener('activate', (event) => {
+    event.waitUntil(
+        caches.keys()
+            .then((keys) => Promise.all(
+                keys.filter((key) => key !== CACHE_NAME).map((key) => caches.delete(key))
+            ))
+            .then(() => self.clients.claim())
+    );
+});
+
+self.addEventListener('fetch', (event) => {
+    if (event.request.method !== 'GET') return;
+
+    const url = new URL(event.request.url);
+    if (url.origin !== self.location.origin) return;
+
+    event.respondWith(
+        caches.match(event.request).then((cached) => {
+            if (cached) {
+                // Stale-while-revalidate em segundo plano
+                fetch(event.request)
+                    .then((response) => {
+                        if (response && response.ok) {
+                            caches.open(CACHE_NAME).then((cache) => cache.put(event.request, response));
+                        }
+                    })
+                    .catch(() => {});
+                return cached;
+            }
+            return fetch(event.request).then((response) => {
+                if (response && response.ok) {
+                    const clone = response.clone();
+                    caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
+                }
+                return response;
+            });
+        })
+    );
+});

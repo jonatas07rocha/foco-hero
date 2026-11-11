@@ -7,11 +7,53 @@ export const dom = {};
 
 export function initializeDOM() {
     dom.appContainer = document.getElementById('app-container');
+    dom.deviceShell = document.getElementById('device-shell');
     dom.themeColorMeta = document.getElementById('theme-color-meta');
 
-    // Header & Zen Mode
+    // Header & Zen Mode & Mini Timer & Paisagens Sonoras
+    dom.soundTogglePanelBtn = document.getElementById('sound-toggle-panel-btn');
     dom.zenModeBtn = document.getElementById('zen-mode-btn');
     dom.focusMethodToggle = document.getElementById('focus-method-toggle');
+    dom.miniTimerPill = document.getElementById('mini-timer-pill');
+    dom.miniTimerDisplay = document.getElementById('mini-timer-display');
+
+    // Mixer de Paisagens Sonoras
+    dom.soundscapePanel = document.getElementById('soundscape-panel');
+    dom.soundPreviewBtn = document.getElementById('sound-preview-btn');
+    dom.soundClosePanelBtn = document.getElementById('sound-close-panel-btn');
+    dom.soundMasterVolume = document.getElementById('sound-master-volume');
+    dom.soundMasterVolumeValue = document.getElementById('sound-master-volume-value');
+    dom.soundPauseBehavior = document.getElementById('sound-pause-behavior');
+    dom.soundSyncTheme = document.getElementById('sound-sync-theme');
+    dom.soundscapeBuiltInList = document.getElementById('soundscape-built-in-list');
+    dom.soundscapeCustomList = document.getElementById('soundscape-custom-list');
+    dom.importAudioBtn = document.getElementById('import-audio-btn');
+    dom.importAudioInput = document.getElementById('import-audio-input');
+
+    // Views no card principal & barra de navegação
+    dom.viewFocus = document.getElementById('view-focus');
+    dom.viewDashboard = document.getElementById('view-dashboard');
+    dom.viewShop = document.getElementById('view-shop');
+    dom.viewSettings = document.getElementById('view-settings');
+    dom.viewHelp = document.getElementById('view-help');
+    dom.bottomNav = document.getElementById('bottom-nav');
+
+    // Visor Inteligente do Timer & Aviso Inline
+    dom.timerPanel = document.getElementById('timer-panel');
+    dom.timerRingView = document.getElementById('timer-ring-view');
+    dom.timerScreenNotice = document.getElementById('timer-screen-notice');
+    dom.screenNoticeBadge = document.getElementById('screen-notice-badge');
+    dom.screenNoticeIcon = document.getElementById('screen-notice-icon');
+    dom.screenNoticeTitle = document.getElementById('screen-notice-title');
+    dom.screenNoticeSubtitle = document.getElementById('screen-notice-subtitle');
+    dom.screenNoticeRewards = document.getElementById('screen-notice-rewards');
+    dom.screenNoticeBar = document.getElementById('screen-notice-bar');
+    dom.screenNoticeHint = document.getElementById('screen-notice-hint');
+    dom.cardInlineNotice = document.getElementById('card-inline-notice');
+    dom.inlineNoticeIcon = document.getElementById('inline-notice-icon');
+    dom.inlineNoticeTitle = document.getElementById('inline-notice-title');
+    dom.inlineNoticeSubtitle = document.getElementById('inline-notice-subtitle');
+    dom.inlineNoticeQueue = document.getElementById('inline-notice-queue');
 
     // Timer e Controles Principais
     dom.timerDisplay = document.getElementById('timer-display');
@@ -24,20 +66,12 @@ export function initializeDOM() {
     // Painel de Tarefas
     dom.taskListEl = document.getElementById('task-list');
     dom.newTaskInput = document.getElementById('new-task-input');
-    dom.newTaskTagSelect = document.getElementById('new-task-tag');
     dom.newTaskEstimateInput = document.getElementById('new-task-estimate');
     dom.newTaskEstimateLabel = document.getElementById('new-task-estimate-label');
     dom.addTaskBtn = document.getElementById('add-task-btn');
     dom.currentTaskDisplay = document.getElementById('current-task-display');
     dom.toggleCompletedTasksBtn = document.getElementById('toggle-completed-tasks-btn');
-    dom.taskTagFilter = document.getElementById('task-tag-filter');
-
-    // Controles Secundários
     dom.resetBtn = document.getElementById('reset-btn');
-    dom.settingsBtn = document.getElementById('settings-btn');
-    dom.dashboardBtn = document.getElementById('dashboard-btn');
-    dom.shopBtn = document.getElementById('shop-btn');
-    dom.helpBtn = document.getElementById('help-btn');
     dom.pomodoroCyclesEl = document.getElementById('pomodoro-cycles');
 
     // Gamificação na UI Principal
@@ -49,25 +83,14 @@ export function initializeDOM() {
     dom.streakDisplay = document.getElementById('streak-display');
     dom.streakFreezesDisplay = document.getElementById('streak-freezes-display');
 
-    // Modais e Overlays
-    dom.alertModalOverlay = document.getElementById('alert-modal-overlay');
-    dom.alertModalCloseBtn = document.getElementById('alert-modal-close-btn');
-    dom.sessionEndModalOverlay = document.getElementById('session-end-modal-overlay');
-    dom.sessionEndCloseBtn = document.getElementById('session-end-close-btn');
-    dom.settingsModalOverlay = document.getElementById('settings-modal-overlay');
-    dom.settingsSaveBtn = document.getElementById('settings-save-btn');
-    dom.helpModalOverlay = document.getElementById('help-modal-overlay');
-    dom.helpModalCloseBtn = document.getElementById('help-modal-close-btn');
+    // Diálogos pontuais
     dom.resetConfirmModalOverlay = document.getElementById('reset-confirm-modal-overlay');
     dom.resetConfirmKeepBtn = document.getElementById('reset-confirm-keep-btn');
     dom.resetConfirmClearBtn = document.getElementById('reset-confirm-clear-btn');
     dom.resetCancelBtn = document.getElementById('reset-cancel-btn');
-    dom.dashboardModalOverlay = document.getElementById('dashboard-modal-overlay');
-    dom.dashboardModalCloseBtn = document.getElementById('dashboard-modal-close-btn');
 
     // Configurações e Backup
-    dom.xpGainDisplay = document.getElementById('xp-gain-display');
-    dom.coinGainDisplay = document.getElementById('coin-gain-display');
+    dom.settingsSaveBtn = document.getElementById('settings-save-btn');
     dom.focusDurationInput = document.getElementById('focus-duration');
     dom.shortBreakDurationInput = document.getElementById('short-break-duration');
     dom.longBreakDurationInput = document.getElementById('long-break-duration');
@@ -91,15 +114,7 @@ export function initializeDOM() {
     dom.dashboardWeeklySummary = document.getElementById('dashboard-weekly-summary');
     dom.dashboardWeeklyChart = document.getElementById('dashboard-weekly-chart');
     dom.dashboardInterruptionsSummary = document.getElementById('dashboard-interruptions-summary');
-    dom.dashboardTagsSummary = document.getElementById('dashboard-tags-summary');
     dom.dashboardDailyReport = document.getElementById('dashboard-daily-report');
-
-    // Toasts
-    dom.achievementToast = document.getElementById('achievement-toast');
-    dom.achievementToastName = document.getElementById('achievement-toast-name');
-    dom.missionToast = document.getElementById('mission-toast');
-    dom.missionToastName = document.getElementById('mission-toast-name');
-    dom.missionToastEmoji = document.getElementById('mission-toast-emoji');
 
     // Banner PWA
     dom.installBanner = document.getElementById('install-banner');
@@ -107,9 +122,6 @@ export function initializeDOM() {
     dom.installDismissBtn = document.getElementById('install-dismiss-btn');
 
     // Loja
-    dom.shopBtn = document.getElementById('shop-btn');
-    dom.shopModalOverlay = document.getElementById('shop-modal-overlay');
-    dom.shopModalCloseBtn = document.getElementById('shop-modal-close-btn');
     dom.shopCoinsDisplay = document.getElementById('shop-coins-display');
     dom.shopFreezesDisplay = document.getElementById('shop-freezes-display');
     dom.shopCollectionsContainer = document.getElementById('shop-collections-container');

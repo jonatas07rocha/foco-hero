@@ -1,23 +1,17 @@
 /**
  * tasks.js
- * Módulo para gerenciar a lógica das tarefas (tags, reordenação, conclusão e interrupções).
+ * Módulo para gerenciar a lógica das tarefas (reordenação, conclusão e interrupções).
  */
 
-import { state, TASK_TAGS } from './state.js';
+import { state } from './state.js';
 
-export function normalizeTag(tag) {
-    if (TASK_TAGS.includes(tag)) return tag;
-    return 'Geral';
-}
-
-export function addTask(name, estimate, tag = 'Geral') {
+export function addTask(name, estimate) {
     const cleanName = typeof name === 'string' ? name.trim() : '';
     if (!cleanName) return null;
 
     const newTask = {
         id: Date.now() + Math.floor(Math.random() * 1000),
         name: cleanName,
-        tag: normalizeTag(tag),
         pomodoroEstimate: Math.max(1, parseInt(estimate, 10) || 1),
         pomodorosCompleted: 0,
         internalInterruptions: 0,
@@ -85,13 +79,6 @@ export function updateTaskName(id, newName) {
         const clean = typeof newName === 'string' ? newName.trim() : '';
         if (clean) task.name = clean;
         task.isEditing = false;
-    }
-}
-
-export function updateTaskTag(id, newTag) {
-    const task = state.tasks.find((t) => t.id === id);
-    if (task) {
-        task.tag = normalizeTag(newTag);
     }
 }
 

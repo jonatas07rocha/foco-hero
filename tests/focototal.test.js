@@ -17,9 +17,20 @@ const gamification = await import('../public/js/gamification.js');
 const shopLogic = await import('../public/js/shop_logic.js');
 const persistence = await import('../public/js/persistence.js');
 const analytics = await import('../public/js/analytics.js');
-const { escapeHtml } = await import('../public/js/ui_controller.js');
+const soundscapes = await import('../public/js/soundscapes.js');
+const soundEngine = await import('../public/js/sound_engine.js');
+const shop = await import('../public/js/shop.js');
+const themeEffects = await import('../public/js/theme_effects.js');
+const {
+    escapeHtml,
+    enqueueScreenNotice,
+    hasActiveScreenNotice,
+    dismissCurrentScreenNotice,
+    clearAllScreenNotices,
+} = await import('../public/js/ui_controller.js');
 
 function resetTestState() {
+    clearAllScreenNotices();
     storageMap.clear();
     clearInterval(state.timerInterval);
     state.timerInterval = null;
@@ -39,7 +50,6 @@ function resetTestState() {
     state.tasks = [];
     state.selectedTaskId = null;
     state.showCompletedTasks = false;
-    state.selectedTagFilter = 'Todas';
     state.history = [];
     state.settings = {
         focusDuration: 25,
@@ -52,6 +62,13 @@ function resetTestState() {
         autoStartFocus: false,
         notificationsEnabled: false,
         soundEnabled: false,
+        soundscapes: {
+            masterVolume: 0.65,
+            pauseBehavior: 'mute',
+            syncWithTheme: false,
+            fadeDuration: 1.5,
+            activeLayers: {},
+        },
     };
     state.gamification = {
         level: 1,
@@ -63,6 +80,7 @@ function resetTestState() {
         streakFreezes: 0,
         unlockedAchievements: [],
         unlockedThemes: [],
+        unlockedSoundPacks: [],
         dailyMissions: [],
         completedMissions: [],
         lastMissionDate: null,
@@ -70,13 +88,13 @@ function resetTestState() {
     };
 }
 
-test('tasks: adiciona com tag, reordena e registra interrupções', () => {
+test('tasks: adiciona, reordena e registra interrupções', () => {
     resetTestState();
-    const t1 = tasks.addTask('Revisar Direito', 2, 'Estudo');
-    const t2 = tasks.addTask('Deploy API', 3, 'TagInvalida');
+    const t1 = tasks.addTask('Revisar Direito', 2);
+    const t2 = tasks.addTask('Deploy API', 3);
 
-    assert.equal(t1.tag, 'Estudo');
-    assert.equal(t2.tag, 'Geral');
+    assert.equal(t1.pomodoroEstimate, 2);
+    assert.equal(t2.pomodoroEstimate, 3);
     assert.equal(state.tasks.length, 2);
 
     assert.equal(tasks.moveTask(t2.id, 'up'), true);
@@ -167,20 +185,19 @@ test('shop_logic: sazonalidade real e compra de Escudo de Sequência', () => {
 test('persistence & analytics: virada de dia arquiva histórico e mantém pendentes + backup JSON', async () => {
     resetTestState();
     state.currentDate = '2026-11-09';
-    const doneTask = tasks.addTask('Tarefa Concluída', 1, 'Estudo');
+    const doneTask = tasks.addTask('Tarefa Concluída', 1);
     doneTask.completed = true;
     doneTask.focusTime = 1500;
     doneTask.pomodorosCompleted = 1;
 
-    const pendingTask = tasks.addTask('Tarefa Pendente', 2, 'Trabalho');
+    const pendingTask = tasks.addTask('Tarefa Pendente', 2);
     pendingTask.focusTime = 600;
 
     const archived = await persistence.checkDayRollover('2026-11-10');
     assert.equal(archived, '2026-11-09');
     assert.equal(state.history.length, 1);
     assert.equal(state.history[0].focusTimeSeconds, 2100);
-    assert.equal(state.history[0].byTag.Estudo, 1500);
-    assert.equal(state.history[0].byTag.Trabalho, 600);
+    assert.equal(state.history[0].pomodorosCompleted, 1);
 
     // Tarefa concluída foi arquivada; pendente permaneceu zerada para hoje
     assert.equal(state.tasks.length, 1);
@@ -197,10 +214,75 @@ test('persistence & analytics: virada de dia arquiva histórico e mantém penden
 
     const weekly = analytics.getWeeklyAggregates(7, new Date('2026-11-10T12:00:00'));
     assert.equal(weekly.totalFocusSeconds, 2100);
-    assert.equal(weekly.sortedTags[0].tag, 'Estudo');
+    assert.equal(weekly.totalPomodoros, 1);
 });
 
 test('ui_controller: escapeHtml neutraliza payload XSS', () => {
     const escaped = escapeHtml('<img src=x onerror="alert(1)"> & \'teste\'');
     assert.equal(escaped, '&lt;img src=x onerror=&quot;alert(1)&quot;&gt; &amp; &#39;teste&#39;');
+});
+
+test('soundscapes & sound_engine: camadas, pausas, vínculo com tema e compra de pacote', () => {
+    resetTestState();
+
+    // Tema Praias cai para pink_noise enquanto PACK_ZEN estiver bloqueado
+    assert.equal(soundscapes.getSuggestedSoundscapeForTheme('natureza_praias', []), 'pink_noise');
+
+    // Compra pacote PACK_ZEN na loja
+    state.gamification.coins = 200;
+    const buyRes = shopLogic.buyItem('SOUND_PACK_ZEN');
+    assert.equal(buyRes.ok, true);
+    assert.ok(state.gamification.unlockedSoundPacks.includes('PACK_ZEN'));
+    assert.equal(soundscapes.getSuggestedSoundscapeForTheme('natureza_praias', state.gamification.unlockedSoundPacks), 'ocean');
+
+    // Mixer de múltiplas camadas e volumes
+    assert.equal(soundEngine.toggleSoundLayer('rain', 0.8), true);
+    assert.equal(soundEngine.toggleSoundLayer('ocean', 0.5), true);
+    soundEngine.setLayerVolume('rain', 0.6);
+    assert.equal(state.settings.soundscapes.activeLayers.rain, 0.6);
+
+    // Comportamento nas pausas: mute, duck (25%), continuous
+    soundEngine.setMasterVolume(0.8);
+    state.settings.soundscapes.pauseBehavior = 'mute';
+    assert.equal(soundEngine.getTargetMasterGain({ isBreak: true }), 0);
+
+    state.settings.soundscapes.pauseBehavior = 'duck';
+    assert.ok(Math.abs(soundEngine.getTargetMasterGain({ isBreak: true }) - 0.2) < 1e-9);
+
+    state.settings.soundscapes.pauseBehavior = 'continuous';
+    assert.equal(soundEngine.getTargetMasterGain({ isBreak: true }), 0.8);
+    clearAllScreenNotices();
+});
+
+test('ui_controller: fila de notificações no visor do timer', () => {
+    resetTestState();
+    assert.equal(hasActiveScreenNotice(), false);
+
+    enqueueScreenNotice({ badge: 'Missão', title: 'Aviso 1', durationMs: 5000 });
+    enqueueScreenNotice({ badge: 'Conquista', title: 'Aviso 2', durationMs: 5000 });
+    assert.equal(hasActiveScreenNotice(), true);
+
+    dismissCurrentScreenNotice();
+    assert.equal(hasActiveScreenNotice(), true);
+
+    dismissCurrentScreenNotice();
+    assert.equal(hasActiveScreenNotice(), false);
+});
+
+test('theme_effects: efeitos visuais cobrem todos os 16 temas compráveis incluindo Matriz', () => {
+    assert.equal(themeEffects.getEffectForTheme('tech_matrix'), 'matrix');
+    assert.equal(themeEffects.getEffectForTheme('brasil_dark'), null);
+
+    const shopThemes = Object.values(shop.shopCollections)
+        .flatMap((col) => Object.values(col.items))
+        .filter((item) => item.type === 'theme')
+        .map((item) => item.themeId);
+
+    assert.equal(shopThemes.length, 16);
+    for (const themeId of shopThemes) {
+        assert.ok(themeEffects.getEffectForTheme(themeId), `Efeito ausente para ${themeId}`);
+    }
+
+    assert.doesNotThrow(() => themeEffects.applyThemeEffect('tech_matrix'));
+    assert.doesNotThrow(() => themeEffects.applyThemeEffect('brasil_dark'));
 });

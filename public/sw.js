@@ -1,4 +1,4 @@
-const CACHE_NAME = 'focototal-v2.0.0';
+const CACHE_NAME = 'focohero-v2.0.9';
 
 const CORE_ASSETS = [
     './',
@@ -19,9 +19,12 @@ const CORE_ASSETS = [
     './js/shop.js',
     './js/shop_logic.js',
     './js/themes.js',
+    './js/theme_effects.js',
     './js/achievements.js',
     './js/missions.js',
     './js/audio.js',
+    './js/soundscapes.js',
+    './js/sound_engine.js',
     './js/notifications.js',
     './js/icons.js',
     './js/ui.js',
@@ -52,26 +55,16 @@ self.addEventListener('fetch', (event) => {
     const url = new URL(event.request.url);
     if (url.origin !== self.location.origin) return;
 
+    // Network-First com fallback para Cache: online sempre recebe arquivos consistentes da mesma versão; offline usa o cache.
     event.respondWith(
-        caches.match(event.request).then((cached) => {
-            if (cached) {
-                // Stale-while-revalidate em segundo plano
-                fetch(event.request)
-                    .then((response) => {
-                        if (response && response.ok) {
-                            caches.open(CACHE_NAME).then((cache) => cache.put(event.request, response));
-                        }
-                    })
-                    .catch(() => {});
-                return cached;
-            }
-            return fetch(event.request).then((response) => {
+        fetch(event.request)
+            .then((response) => {
                 if (response && response.ok) {
                     const clone = response.clone();
                     caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
                 }
                 return response;
-            });
-        })
+            })
+            .catch(() => caches.match(event.request))
     );
 });

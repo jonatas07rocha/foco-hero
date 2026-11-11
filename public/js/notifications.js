@@ -41,7 +41,7 @@ export async function sendNotification(title, body) {
         body,
         icon: './icon-192x192.png',
         badge: './icon-192x192.png',
-        tag: 'foco-total-timer',
+        tag: 'foco-hero-timer',
         renotify: true,
     };
 

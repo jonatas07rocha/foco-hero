@@ -1,6 +1,6 @@
 /**
  * main.js
- * Orquestrador principal da aplicação Foco Total v2 (Offline-First PWA).
+ * Orquestrador principal da aplicação Foco Hero v2 (Offline-First PWA).
  */
 
 import { achievements } from './achievements.js';
@@ -17,6 +17,9 @@ import {
 import { playBeep, playFinishSound, resumeAudio } from './audio.js';
 import { requestNotificationPermission, sendNotification } from './notifications.js';
 import { renderIcons } from './icons.js';
+import { saveCustomAudioToDB, deleteCustomAudioFromDB } from './db.js';
+import { getSuggestedSoundscapeForTheme } from './soundscapes.js';
+import * as soundEngine from './sound_engine.js';
 import * as gamification from './gamification.js';
 import * as timer from './timer.js';
 import * as tasks from './tasks.js';
@@ -39,16 +42,18 @@ document.addEventListener('DOMContentLoaded', () => {
         ui.renderDashboard();
         ui.updateUI();
         ui.updateShowCompletedBtn();
+        ui.renderSoundscapesPanel();
+        ui.switchView('focus');
 
         if (state.isRunning) {
             state.timerInterval = setInterval(handleTimerTick, 1000);
+            soundEngine.updatePlaybackForTimerState();
         }
 
         await saveState();
         renderIcons(document);
         registerServiceWorker();
 
-        // Verifica virada de dia a cada minuto e ao voltar para a aba
         setInterval(handleRolloverCheck, 60000);
         document.addEventListener('visibilitychange', () => {
             if (!document.hidden) handleRolloverCheck();
@@ -57,11 +62,46 @@ document.addEventListener('DOMContentLoaded', () => {
         state.isAppInitialized = true;
     }
 
+    function navigateTo(viewName) {
+        if (state.activeView === 'shop' && viewName !== 'shop') {
+            shop.cancelThemePreview();
+        }
+        if (state.zenMode && viewName !== 'focus') {
+            state.zenMode = false;
+            ui.updateZenModeUI();
+        }
+
+        if (viewName === 'dashboard') {
+            ui.renderDashboard();
+        } else if (viewName === 'shop') {
+            shop.renderShop();
+        } else if (viewName === 'settings') {
+            ui.renderPaletteSelector();
+        } else if (viewName === 'help') {
+            const isPomodoro = state.settings.focusMethod === 'pomodoro';
+            if (dom.helpContentPomodoro) dom.helpContentPomodoro.classList.toggle('hidden', !isPomodoro);
+            if (dom.helpContentAdaptativo) dom.helpContentAdaptativo.classList.toggle('hidden', isPomodoro);
+        }
+
+        ui.switchView(viewName);
+    }
+
     function registerServiceWorker() {
         if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.register('./sw.js').catch((err) => {
-                console.warn('Service Worker não registrado:', err);
+            const hadController = Boolean(navigator.serviceWorker.controller);
+            let reloaded = false;
+            navigator.serviceWorker.addEventListener('controllerchange', () => {
+                if (hadController && !reloaded) {
+                    reloaded = true;
+                    window.location.reload();
+                }
             });
+            navigator.serviceWorker
+                .register('./sw.js')
+                .then((reg) => reg.update().catch(() => {}))
+                .catch((err) => {
+                    console.warn('Service Worker não registrado:', err);
+                });
         }
     }
 
@@ -99,59 +139,93 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function handleSessionEnd() {
-        const hadInterruptionsThisSession = state.uninterruptedSessionsToday === 0 && state.tasks.some((t) => t.id === state.selectedTaskId && (t.internalInterruptions > 0 || t.externalInterruptions > 0));
+        const hadInterruptionsThisSession =
+            state.uninterruptedSessionsToday === 0 &&
+            state.tasks.some((t) => t.id === state.selectedTaskId && (t.internalInterruptions > 0 || t.externalInterruptions > 0));
         const { previousMode, focusDuration } = timer.switchMode();
         playFinishSound();
         if ('vibrate' in navigator) navigator.vibrate([200, 100, 200]);
 
         if (previousMode === 'focus') {
-            const streakInfo = gamification.checkStreak();
-            if (streakInfo) {
-                if (streakInfo.freezesUsed > 0) {
-                    ui.showModal(
-                        dom.alertModalOverlay,
-                        `Escudo de Sequência ativado! Sua sequência foi protegida e subiu para ${streakInfo.streak} dias (+${streakInfo.bonus} moedas).`
-                    );
-                } else if (streakInfo.bonus > 0) {
-                    ui.showModal(
-                        dom.alertModalOverlay,
-                        `Sequência de ${streakInfo.streak} dias! Você ganhou ${streakInfo.bonus} moedas de bônus!`
-                    );
-                }
-            }
-
             const rewards = gamification.calculateSessionRewards(focusDuration, !hadInterruptionsThisSession);
             const leveledUp = gamification.addXP(rewards.xp);
             gamification.addCoins(rewards.coins);
-
-            if (leveledUp) {
-                playBeep(659, 150, 0.4);
-                setTimeout(() => playBeep(784, 300, 0.5), 200);
-                ui.showModal(dom.alertModalOverlay, `Parabéns! Você alcançou o Nível ${state.gamification.level}!`);
-            }
 
             const endMessage =
                 state.settings.focusMethod === 'pomodoro'
                     ? 'Você completou um Pomodoro! Hora de fazer uma pausa.'
                     : 'Sessão de foco finalizada!';
-            ui.showModal(dom.sessionEndModalOverlay, endMessage);
-            sendNotification('Foco Total — Sessão Concluída!', endMessage);
-
-            dom.xpGainDisplay.textContent = `+${rewards.xp} XP`;
-            dom.coinGainDisplay.textContent =
+            const rewardsText =
                 rewards.bonusCoins > 0
-                    ? `+${rewards.coins} Moedas (inclui +${rewards.bonusCoins} bônus sem interrupção)`
-                    : `+${rewards.coins} Moedas`;
+                    ? `+${rewards.xp} XP • +${rewards.coins} Moedas (inclui +${rewards.bonusCoins} bônus)`
+                    : `+${rewards.xp} XP • +${rewards.coins} Moedas`;
+
+            ui.enqueueScreenNotice({
+                badge: 'Sessão Finalizada',
+                title: state.settings.focusMethod === 'pomodoro' ? 'Pomodoro Concluído!' : 'Foco Concluído!',
+                subtitle: endMessage,
+                rewardsText,
+                icon: 'check-circle-2',
+                accent: 'coin',
+                durationMs: 5200,
+            });
+            sendNotification('Foco Hero — Sessão Concluída!', endMessage);
+
+            const streakInfo = gamification.checkStreak();
+            if (streakInfo) {
+                if (streakInfo.freezesUsed > 0) {
+                    ui.enqueueScreenNotice({
+                        badge: 'Escudo Ativado',
+                        title: `Sequência de ${streakInfo.streak} dias protegida!`,
+                        subtitle: 'Um Escudo de Sequência salvou sua consistência.',
+                        rewardsText: `+${streakInfo.bonus} Moedas`,
+                        icon: 'shield',
+                        accent: 'streak',
+                        durationMs: 4500,
+                    });
+                } else if (streakInfo.bonus > 0) {
+                    ui.enqueueScreenNotice({
+                        badge: 'Sequência Diária',
+                        title: `${streakInfo.streak} dias seguidos!`,
+                        subtitle: 'Sua consistência está rendendo frutos.',
+                        rewardsText: `+${streakInfo.bonus} Moedas de bônus`,
+                        icon: 'flame',
+                        accent: 'streak',
+                        durationMs: 4200,
+                    });
+                }
+            }
+
+            if (leveledUp) {
+                playBeep(659, 150, 0.4);
+                setTimeout(() => playBeep(784, 300, 0.5), 200);
+                ui.enqueueScreenNotice({
+                    badge: 'Subiu de Nível',
+                    title: `Nível ${state.gamification.level} Alcançado!`,
+                    subtitle: 'Continue acumulando foco e conquistas.',
+                    icon: 'sparkles',
+                    accent: 'coin',
+                    durationMs: 4500,
+                });
+            }
 
             checkGains({ endedFocusSession: true });
         } else {
             const breakMsg = 'Pausa finalizada! Vamos voltar ao foco?';
-            ui.showModal(dom.sessionEndModalOverlay, breakMsg);
-            sendNotification('Foco Total — Pausa Finalizada!', breakMsg);
+            ui.enqueueScreenNotice({
+                badge: 'Fim da Pausa',
+                title: 'Hora de Voltar!',
+                subtitle: breakMsg,
+                icon: 'coffee',
+                accent: 'primary',
+                durationMs: 4200,
+            });
+            sendNotification('Foco Hero — Pausa Finalizada!', breakMsg);
             checkGains();
         }
 
         startNextAutoSessionIfEnabled(previousMode);
+        soundEngine.updatePlaybackForTimerState();
         ui.updateUI();
         ui.renderTasks();
         ui.renderDashboard();
@@ -182,8 +256,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function handleAddTask() {
         const taskName = dom.newTaskInput.value.trim();
         const estimate = parseInt(dom.newTaskEstimateInput.value, 10);
-        const tag = dom.newTaskTagSelect ? dom.newTaskTagSelect.value : 'Geral';
-        const newTask = tasks.addTask(taskName, estimate, tag);
+        const newTask = tasks.addTask(taskName, estimate);
         if (newTask) {
             state.tasksAddedToday++;
             dom.newTaskInput.value = '';
@@ -203,16 +276,25 @@ document.addEventListener('DOMContentLoaded', () => {
     function handleStartPauseLogic() {
         if (state.isRunning) {
             timer.pauseTimer();
+            soundEngine.updatePlaybackForTimerState();
             saveState();
         } else {
             const startResult = timer.startTimer();
             if (startResult === 'NO_TASK') {
-                ui.showModal(dom.alertModalOverlay, 'Por favor, selecione uma tarefa para iniciar o foco.');
+                ui.enqueueScreenNotice({
+                    badge: 'Atenção',
+                    title: 'Selecione uma tarefa',
+                    subtitle: 'Escolha ou crie uma tarefa abaixo para iniciar o foco.',
+                    icon: 'list-plus',
+                    accent: 'primary',
+                    durationMs: 3600,
+                });
             } else if (startResult) {
                 if (state.mode === 'focus' && new Date().getHours() < 9) {
                     state.startedBefore9AM = 1;
                 }
                 state.timerInterval = setInterval(handleTimerTick, 1000);
+                soundEngine.updatePlaybackForTimerState();
                 checkGains();
                 saveState();
             }
@@ -222,8 +304,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function triggerStartPause() {
         if (!state.audioInitialized) resumeAudio();
-        if (dom.xpGainDisplay) dom.xpGainDisplay.textContent = '';
-        if (dom.coinGainDisplay) dom.coinGainDisplay.textContent = '';
 
         const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent);
         if (isIOS && !state.isRunning && !state.isPaused && state.settings.focusMethod === 'pomodoro') {
@@ -240,7 +320,19 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // --- EVENT LISTENERS ---
+    // --- NAVEGAÇÃO NO CARD PRINCIPAL ---
+    if (dom.bottomNav) {
+        dom.bottomNav.addEventListener('click', (e) => {
+            const btn = e.target.closest('[data-nav-view]');
+            if (!btn) return;
+            navigateTo(btn.dataset.navView);
+        });
+    }
+
+    if (dom.miniTimerPill) {
+        dom.miniTimerPill.addEventListener('click', () => navigateTo('focus'));
+    }
+
     if (dom.zenModeBtn) {
         dom.zenModeBtn.addEventListener('click', () => {
             state.zenMode = !state.zenMode;
@@ -248,6 +340,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    // --- EVENT LISTENERS DO TIMER & TAREFAS ---
     dom.startPauseBtn.addEventListener('click', triggerStartPause);
 
     if (dom.finishAdaptiveBtn) {
@@ -282,11 +375,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (state.mode === 'focus') {
             const task = state.tasks.find((t) => t.id === state.selectedTaskId);
-            eventTitle = `🎉 Fim do Foco: ${task ? task.name : 'Foco'}`;
+            eventTitle = `Fim do Foco: ${task ? task.name : 'Foco'}`;
             eventDescription = `Sua sessão de foco terminou. Hora de fazer uma pausa! Volte ao app: ${appUrl}`;
             duration = state.settings.focusDuration;
         } else {
-            eventTitle = state.mode === 'shortBreak' ? '🚀 Fim da Pausa Curta' : '🏆 Fim da Pausa Longa';
+            eventTitle = state.mode === 'shortBreak' ? 'Fim da Pausa Curta' : 'Fim da Pausa Longa';
             eventDescription = `Sua pausa acabou. Hora de voltar ao foco! Volte ao app: ${appUrl}`;
             duration = state.mode === 'shortBreak' ? state.settings.shortBreakDuration : state.settings.longBreakDuration;
         }
@@ -298,9 +391,9 @@ document.addEventListener('DOMContentLoaded', () => {
         const icsContent = [
             'BEGIN:VCALENDAR',
             'VERSION:2.0',
-            'PRODID:-//FocoTotal//PWA//PT',
+            'PRODID:-//FocoHero//PWA//PT',
             'BEGIN:VEVENT',
-            `UID:${Date.now()}@focototal.app`,
+            `UID:${Date.now()}@focohero.app`,
             `DTSTAMP:${formatDT(new Date())}`,
             `DTSTART:${formatDT(eventStartTime)}`,
             `DTEND:${formatDT(eventEndTime)}`,
@@ -331,25 +424,46 @@ document.addEventListener('DOMContentLoaded', () => {
     // Encerrar / Arquivar Dia
     dom.resetBtn.addEventListener('click', () => ui.showModal(dom.resetConfirmModalOverlay));
 
+    if (dom.timerScreenNotice) {
+        dom.timerScreenNotice.addEventListener('click', () => ui.dismissCurrentScreenNotice());
+    }
+    if (dom.cardInlineNotice) {
+        dom.cardInlineNotice.addEventListener('click', () => ui.dismissCurrentScreenNotice());
+    }
+
     if (dom.resetConfirmKeepBtn) {
         dom.resetConfirmKeepBtn.addEventListener('click', async () => {
             await archiveDay(state.currentDate, { keepPendingTasks: true });
+            soundEngine.updatePlaybackForTimerState();
             ui.renderTasks();
             ui.renderDashboard();
             ui.updateUI();
             ui.hideModal(dom.resetConfirmModalOverlay);
-            ui.showModal(dom.alertModalOverlay, 'Dia arquivado no histórico! As tarefas pendentes foram mantidas.');
+            ui.enqueueScreenNotice({
+                badge: 'Dia Arquivado',
+                title: 'Histórico Salvo!',
+                subtitle: 'Suas tarefas pendentes foram mantidas para hoje.',
+                icon: 'calendar-check',
+                accent: 'primary',
+            });
         });
     }
 
     if (dom.resetConfirmClearBtn) {
         dom.resetConfirmClearBtn.addEventListener('click', async () => {
             await archiveDay(state.currentDate, { keepPendingTasks: false });
+            soundEngine.updatePlaybackForTimerState();
             ui.renderTasks();
             ui.renderDashboard();
             ui.updateUI();
             ui.hideModal(dom.resetConfirmModalOverlay);
-            ui.showModal(dom.alertModalOverlay, 'Dia arquivado no histórico e lista limpa com sucesso!');
+            ui.enqueueScreenNotice({
+                badge: 'Dia Arquivado',
+                title: 'Histórico Salvo e Lista Limpa!',
+                subtitle: 'Pronto para começar um novo dia.',
+                icon: 'calendar-check',
+                accent: 'primary',
+            });
         });
     }
 
@@ -363,16 +477,6 @@ document.addEventListener('DOMContentLoaded', () => {
         dom.toggleCompletedTasksBtn.addEventListener('click', () => {
             tasks.toggleShowCompleted();
             ui.updateShowCompletedBtn();
-            ui.renderTasks();
-            saveState();
-        });
-    }
-
-    if (dom.taskTagFilter) {
-        dom.taskTagFilter.addEventListener('click', (e) => {
-            const btn = e.target.closest('[data-filter-tag]');
-            if (!btn) return;
-            state.selectedTagFilter = btn.dataset.filterTag;
             ui.renderTasks();
             saveState();
         });
@@ -402,7 +506,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 const leveledUp = gamification.addXP(10);
                 gamification.addCoins(2);
                 if (leveledUp) {
-                    ui.showModal(dom.alertModalOverlay, `Parabéns! Você alcançou o Nível ${state.gamification.level}!`);
+                    ui.enqueueScreenNotice({
+                        badge: 'Subiu de Nível',
+                        title: `Nível ${state.gamification.level} Alcançado!`,
+                        subtitle: 'Parabéns pela conclusão das tarefas!',
+                        icon: 'sparkles',
+                        accent: 'coin',
+                    });
                 }
                 checkGains();
             }
@@ -451,20 +561,10 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // Modais e Dashboard
-    dom.settingsBtn.addEventListener('click', () => {
-        ui.renderPaletteSelector();
-        ui.showModal(dom.settingsModalOverlay);
-    });
-
-    dom.dashboardBtn.addEventListener('click', () => {
-        ui.renderDashboard();
-        ui.showModal(dom.dashboardModalOverlay);
-    });
-
-    if (dom.dashboardModalOverlay) {
-        const tabButtons = dom.dashboardModalOverlay.querySelectorAll('.dashboard-tab');
-        const tabContents = dom.dashboardModalOverlay.querySelectorAll('.dashboard-tab-content');
+    // Abas internas do Dashboard
+    if (dom.viewDashboard) {
+        const tabButtons = dom.viewDashboard.querySelectorAll('.dashboard-tab');
+        const tabContents = dom.viewDashboard.querySelectorAll('.dashboard-tab-content');
 
         tabButtons.forEach((button) => {
             button.addEventListener('click', () => {
@@ -475,11 +575,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    dom.shopBtn.addEventListener('click', () => {
-        shop.renderShop();
-        ui.showModal(dom.shopModalOverlay);
-    });
-
+    // Loja
     dom.shopCollectionsContainer.addEventListener('click', (e) => {
         const previewBtn = e.target.closest('[data-preview-theme]');
         if (previewBtn) {
@@ -492,24 +588,20 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    if (dom.shopModalCloseBtn) {
-        dom.shopModalCloseBtn.addEventListener('click', () => shop.cancelThemePreview());
-    }
-
-    dom.helpBtn.addEventListener('click', () => {
-        const isPomodoro = state.settings.focusMethod === 'pomodoro';
-        dom.helpContentPomodoro.classList.toggle('hidden', !isPomodoro);
-        dom.helpContentAdaptativo.classList.toggle('hidden', isPomodoro);
-        ui.showModal(dom.helpModalOverlay);
-    });
-
+    // Configurações & Backup
     if (dom.notificationsToggleCheckbox) {
         dom.notificationsToggleCheckbox.addEventListener('change', async (e) => {
             if (e.target.checked) {
                 const perm = await requestNotificationPermission();
                 if (perm !== 'granted') {
                     e.target.checked = false;
-                    ui.showModal(dom.alertModalOverlay, 'Permissão de notificações não concedida no navegador.');
+                    ui.enqueueScreenNotice({
+                        badge: 'Notificações',
+                        title: 'Permissão Negada',
+                        subtitle: 'Libere as notificações nas configurações do navegador.',
+                        icon: 'bell',
+                        accent: 'primary',
+                    });
                 }
             } else {
                 state.settings.notificationsEnabled = false;
@@ -526,15 +618,14 @@ document.addEventListener('DOMContentLoaded', () => {
         state.settings.autoStartFocus = Boolean(dom.autoStartFocusCheckbox?.checked);
         state.settings.soundEnabled = dom.soundToggleCheckbox ? dom.soundToggleCheckbox.checked : true;
 
-        ui.hideModal(dom.settingsModalOverlay);
         if (!state.isRunning && !state.isPaused) {
             timer.resetTimer('focus');
             ui.updateUI();
         }
         saveState();
+        navigateTo('focus');
     });
 
-    // Exportar / Importar Backup JSON
     if (dom.exportBackupBtn) {
         dom.exportBackupBtn.addEventListener('click', () => {
             const json = exportBackupJSON();
@@ -542,7 +633,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
-            a.download = `focototal-backup-${getLocalDateString()}.json`;
+            a.download = `focohero-backup-${getLocalDateString()}.json`;
             a.click();
             URL.revokeObjectURL(url);
         });
@@ -561,14 +652,149 @@ document.addEventListener('DOMContentLoaded', () => {
                 ui.renderTasks();
                 ui.updateGamificationUI();
                 ui.renderDashboard();
+                ui.renderSoundscapesPanel();
                 ui.updateUI();
-                ui.hideModal(dom.settingsModalOverlay);
-                ui.showModal(dom.alertModalOverlay, 'Backup restaurado com sucesso!');
+                navigateTo('focus');
+                ui.enqueueScreenNotice({
+                    badge: 'Backup Local',
+                    title: 'Backup Restaurado!',
+                    subtitle: 'Seus dados e histórico foram importados com sucesso.',
+                    icon: 'upload',
+                    accent: 'primary',
+                });
             } catch (err) {
-                ui.showModal(dom.alertModalOverlay, `Erro ao importar backup: ${err.message}`);
+                ui.enqueueScreenNotice({
+                    badge: 'Erro no Backup',
+                    title: 'Arquivo Inválido',
+                    subtitle: err.message,
+                    icon: 'x',
+                    accent: 'primary',
+                });
             } finally {
                 dom.importBackupInput.value = '';
             }
+        });
+    }
+
+    // --- PAISAGENS SONORAS (MIXER + MÚSICAS LOCAIS) ---
+    if (dom.soundTogglePanelBtn) {
+        dom.soundTogglePanelBtn.addEventListener('click', () => {
+            state.soundPanelOpen = !state.soundPanelOpen;
+            ui.renderSoundscapesPanel();
+        });
+    }
+
+    if (dom.soundClosePanelBtn) {
+        dom.soundClosePanelBtn.addEventListener('click', () => {
+            state.soundPanelOpen = false;
+            ui.renderSoundscapesPanel();
+        });
+    }
+
+    if (dom.soundPreviewBtn) {
+        dom.soundPreviewBtn.addEventListener('click', () => {
+            state.isSoundPreviewing = !state.isSoundPreviewing;
+            soundEngine.updatePlaybackForTimerState();
+            ui.renderSoundscapesPanel();
+        });
+    }
+
+    if (dom.soundMasterVolume) {
+        dom.soundMasterVolume.addEventListener('input', (e) => {
+            const val = parseInt(e.target.value, 10) / 100;
+            soundEngine.setMasterVolume(val);
+            if (dom.soundMasterVolumeValue) {
+                dom.soundMasterVolumeValue.textContent = `${e.target.value}%`;
+            }
+        });
+        dom.soundMasterVolume.addEventListener('change', () => saveState());
+    }
+
+    if (dom.soundPauseBehavior) {
+        dom.soundPauseBehavior.addEventListener('change', (e) => {
+            state.settings.soundscapes.pauseBehavior = e.target.value;
+            soundEngine.updatePlaybackForTimerState();
+            saveState();
+        });
+    }
+
+    if (dom.soundSyncTheme) {
+        dom.soundSyncTheme.addEventListener('change', (e) => {
+            state.settings.soundscapes.syncWithTheme = Boolean(e.target.checked);
+            if (state.settings.soundscapes.syncWithTheme) {
+                const suggested = getSuggestedSoundscapeForTheme(
+                    state.settings.theme,
+                    state.gamification.unlockedSoundPacks
+                );
+                state.settings.soundscapes.activeLayers = { [suggested]: 0.7 };
+                soundEngine.updatePlaybackForTimerState();
+                ui.renderSoundscapesPanel();
+            }
+            saveState();
+        });
+    }
+
+    if (dom.soundscapePanel) {
+        dom.soundscapePanel.addEventListener('click', async (e) => {
+            const toggleBtn = e.target.closest('[data-sound-toggle]');
+            if (toggleBtn && !toggleBtn.disabled) {
+                soundEngine.toggleSoundLayer(toggleBtn.dataset.soundToggle, 0.7);
+                ui.renderSoundscapesPanel();
+                saveState();
+                return;
+            }
+
+            const deleteBtn = e.target.closest('[data-delete-audio]');
+            if (deleteBtn) {
+                const rawId = deleteBtn.dataset.deleteAudio;
+                const layerId = `custom:${rawId}`;
+                if (state.settings.soundscapes?.activeLayers?.[layerId] !== undefined) {
+                    delete state.settings.soundscapes.activeLayers[layerId];
+                }
+                state.customAudios = (state.customAudios || []).filter((a) => a.id !== rawId);
+                soundEngine.revokeCustomAudioUrl(rawId);
+                soundEngine.updatePlaybackForTimerState();
+                await deleteCustomAudioFromDB(rawId);
+                ui.renderSoundscapesPanel();
+                saveState();
+            }
+        });
+
+        dom.soundscapePanel.addEventListener('input', (e) => {
+            const slider = e.target.closest('[data-sound-volume]');
+            if (!slider) return;
+            const vol = parseInt(slider.value, 10) / 100;
+            soundEngine.setLayerVolume(slider.dataset.soundVolume, vol);
+        });
+
+        dom.soundscapePanel.addEventListener('change', (e) => {
+            if (e.target.matches('[data-sound-volume]')) {
+                saveState();
+            }
+        });
+    }
+
+    if (dom.importAudioBtn && dom.importAudioInput) {
+        dom.importAudioBtn.addEventListener('click', () => dom.importAudioInput.click());
+        dom.importAudioInput.addEventListener('change', async (e) => {
+            const files = Array.from(e.target.files || []);
+            for (const file of files) {
+                const track = {
+                    id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+                    name: file.name.replace(/\.[^/.]+$/, ''),
+                    mimeType: file.type || 'audio/mpeg',
+                    size: file.size,
+                    createdAt: Date.now(),
+                    blob: file,
+                };
+                await saveCustomAudioToDB(track);
+                state.customAudios.push(track);
+                state.settings.soundscapes.activeLayers[`custom:${track.id}`] = 0.75;
+            }
+            dom.importAudioInput.value = '';
+            soundEngine.updatePlaybackForTimerState();
+            ui.renderSoundscapesPanel();
+            saveState();
         });
     }
 
@@ -577,6 +803,15 @@ document.addEventListener('DOMContentLoaded', () => {
         if (target) {
             state.settings.theme = target.dataset.theme;
             state.gamification.changedThemesCount.add(state.settings.theme);
+            if (state.settings.soundscapes?.syncWithTheme) {
+                const suggested = getSuggestedSoundscapeForTheme(
+                    state.settings.theme,
+                    state.gamification.unlockedSoundPacks
+                );
+                state.settings.soundscapes.activeLayers = { [suggested]: 0.7 };
+                soundEngine.updatePlaybackForTimerState();
+                ui.renderSoundscapesPanel();
+            }
             ui.applyTheme(state.settings.theme);
             ui.renderPaletteSelector();
             ui.updateMethodToggleUI();
@@ -596,11 +831,17 @@ document.addEventListener('DOMContentLoaded', () => {
             ui.updateUI();
             saveState();
         } else if (state.isRunning || state.isPaused) {
-            ui.showModal(dom.alertModalOverlay, 'Finalize ou zere a sessão atual antes de trocar de modo.');
+            ui.enqueueScreenNotice({
+                badge: 'Modo de Foco',
+                title: 'Sessão em Andamento',
+                subtitle: 'Finalize ou zere a sessão atual antes de trocar de modo.',
+                icon: 'timer',
+                accent: 'primary',
+            });
         }
     });
 
-    // Atalhos de teclado: Espaço (Play/Pause), N (Nova tarefa), Esc (Fechar modais / Sair do Zen)
+    // Atalhos de teclado: Espaço (Play/Pause), N (Nova tarefa), Esc (Fechar diálogo / aviso / sair do Zen / voltar ao Foco)
     document.addEventListener('keydown', (e) => {
         const activeTag = document.activeElement?.tagName;
         const isTyping = activeTag === 'INPUT' || activeTag === 'TEXTAREA' || activeTag === 'SELECT';
@@ -608,13 +849,20 @@ document.addEventListener('DOMContentLoaded', () => {
         if (e.key === 'Escape') {
             const openOverlay = document.querySelector('.modal-overlay.visible');
             if (openOverlay) {
-                if (openOverlay === dom.shopModalOverlay) shop.cancelThemePreview();
                 ui.hideModal(openOverlay);
+                return;
+            }
+            if (ui.hasActiveScreenNotice()) {
+                ui.dismissCurrentScreenNotice();
                 return;
             }
             if (state.zenMode) {
                 state.zenMode = false;
                 ui.updateZenModeUI();
+                return;
+            }
+            if (state.activeView !== 'focus') {
+                navigateTo('focus');
             }
             return;
         }
@@ -622,11 +870,12 @@ document.addEventListener('DOMContentLoaded', () => {
         if (isTyping) return;
         if (document.querySelector('.modal-overlay.visible')) return;
 
-        if (e.code === 'Space') {
+        if (e.code === 'Space' && state.activeView === 'focus') {
             e.preventDefault();
             triggerStartPause();
         } else if (e.key.toLowerCase() === 'n' && !state.zenMode) {
             e.preventDefault();
+            if (state.activeView !== 'focus') navigateTo('focus');
             dom.newTaskInput?.focus();
         }
     });
@@ -654,42 +903,20 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // Fechar Modais
+    // Fechar diálogos pontuais
     [
-        dom.alertModalOverlay,
-        dom.settingsModalOverlay,
-        dom.dashboardModalOverlay,
-        dom.helpModalOverlay,
         dom.resetConfirmModalOverlay,
-        dom.sessionEndModalOverlay,
-        dom.shopModalOverlay,
         dom.iosStartPromptModalOverlay,
     ].forEach((overlay) => {
         if (!overlay) return;
         overlay.addEventListener('click', (e) => {
-            if (e.target === overlay) {
-                if (overlay === dom.shopModalOverlay) shop.cancelThemePreview();
-                ui.hideModal(overlay);
-            }
+            if (e.target === overlay) ui.hideModal(overlay);
         });
     });
 
-    [
-        dom.alertModalCloseBtn,
-        dom.sessionEndCloseBtn,
-        dom.dashboardModalCloseBtn,
-        dom.helpModalCloseBtn,
-        dom.resetCancelBtn,
-        dom.shopModalCloseBtn,
-    ].forEach((btn) => {
-        if (btn) {
-            btn.addEventListener('click', () => {
-                const overlay = btn.closest('.modal-overlay');
-                if (overlay === dom.shopModalOverlay) shop.cancelThemePreview();
-                ui.hideModal(overlay);
-            });
-        }
-    });
+    if (dom.resetCancelBtn) {
+        dom.resetCancelBtn.addEventListener('click', () => ui.hideModal(dom.resetConfirmModalOverlay));
+    }
 
     initializeApp();
 });

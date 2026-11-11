@@ -1,6 +1,6 @@
 /**
  * state.js
- * Módulo central de estado da aplicação Foco Total v2.
+ * Módulo central de estado da aplicação Foco Hero v2.
  */
 
 export function getLocalDateString(date = new Date()) {
@@ -10,12 +10,14 @@ export function getLocalDateString(date = new Date()) {
     return `${year}-${month}-${day}`;
 }
 
-export const TASK_TAGS = ['Geral', 'Estudo', 'Trabalho', 'Projeto', 'Pessoal'];
-
 export const state = {
     isAppInitialized: false,
+    activeView: 'focus', // 'focus', 'dashboard', 'shop', 'settings', 'help'
     zenMode: false,
+    soundPanelOpen: false,
+    isSoundPreviewing: false,
     previewThemeId: null,
+    customAudios: [], // carregado do IndexedDB ({ id, name, mimeType, size, createdAt, blob })
 
     // Estado do Timer e da Sessão
     timerInterval: null,
@@ -37,7 +39,6 @@ export const state = {
     tasks: [],
     selectedTaskId: null,
     showCompletedTasks: false,
-    selectedTagFilter: 'Todas',
 
     // Histórico Multi-dias (carregado do IndexedDB)
     history: [],
@@ -54,6 +55,13 @@ export const state = {
         autoStartFocus: false,
         notificationsEnabled: false,
         soundEnabled: true,
+        soundscapes: {
+            masterVolume: 0.65,
+            pauseBehavior: 'mute', // 'mute' | 'duck' | 'continuous'
+            syncWithTheme: false,
+            fadeDuration: 1.5,
+            activeLayers: {},
+        },
     },
 
     // Estado de Gamificação
@@ -67,6 +75,7 @@ export const state = {
         streakFreezes: 0,
         unlockedAchievements: [],
         unlockedThemes: [],
+        unlockedSoundPacks: [],
         dailyMissions: [],
         completedMissions: [],
         lastMissionDate: null,

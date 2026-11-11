@@ -1,4 +1,4 @@
-# 🚀 Foco Total (v2.0)
+# Foco Hero (v2.0)
 
 [![MIT License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![PWA Ready](https://img.shields.io/badge/PWA-offline--first-green.svg)](https://web.dev/progressive-web-apps/)

@@ -5,106 +5,100 @@
  * key: Identificador único da conquista (usado no código).
  * name: O nome da conquista que aparece para o usuário.
  * description: O que o usuário precisa fazer para desbloqueá-la.
- * emoji: Um ícone para representar a conquista.
+ * icon: Nome do ícone SVG em icons.js.
  */
 
 export const achievements = {
     // --- Conquistas de Ação ---
-    FIRST_STEP: { 
-        name: 'Primeiro Passo', 
-        description: 'Complete sua primeira sessão de foco.', 
-        emoji: '🚀' 
+    FIRST_STEP: {
+        name: 'Primeiro Passo',
+        description: 'Complete sua primeira sessão de foco.',
+        icon: 'rocket',
     },
-    FOCUSED_BEGINNER: { 
-        name: 'Iniciante Focado', 
-        description: 'Complete 5 sessões de foco.', 
-        emoji: '🎯' 
+    FOCUSED_BEGINNER: {
+        name: 'Iniciante Focado',
+        description: 'Complete 5 sessões de foco.',
+        icon: 'target',
     },
-    TASK_MASTER: { 
-        name: 'Mestre das Tarefas', 
-        description: 'Complete 10 tarefas em um dia.', 
-        emoji: '✔️' 
+    TASK_MASTER: {
+        name: 'Mestre das Tarefas',
+        description: 'Complete 10 tarefas em um dia.',
+        icon: 'check-check',
     },
-    MARATHONER: { 
-        name: 'Maratonista', 
-        description: 'Foque por um total de 4 horas em um dia.', 
-        emoji: '🏃' 
+    MARATHONER: {
+        name: 'Maratonista',
+        description: 'Foque por um total de 4 horas em um dia.',
+        icon: 'timer',
     },
-    
+
     // --- Conquistas de Consistência ---
-    STREAK_STARTER: { 
-        name: 'Começando a Pegar Fogo', 
-        description: 'Alcance uma sequência de 3 dias.', 
-        emoji: '🔥' 
+    STREAK_STARTER: {
+        name: 'Começando a Pegar Fogo',
+        description: 'Alcance uma sequência de 3 dias.',
+        icon: 'flame',
     },
-    ON_FIRE: { 
-        name: 'Em Chamas!', 
-        description: 'Alcance uma sequência de 7 dias.', 
-        emoji: '🔥🔥' 
+    ON_FIRE: {
+        name: 'Em Chamas!',
+        description: 'Alcance uma sequência de 7 dias.',
+        icon: 'zap',
     },
-    
+
     // --- Conquistas de Recurso ---
-    COIN_COLLECTOR: { 
-        name: 'Colecionador de Moedas', 
-        description: 'Acumule 500 moedas.', 
-        emoji: '💰' 
+    COIN_COLLECTOR: {
+        name: 'Colecionador de Moedas',
+        description: 'Acumule 500 moedas.',
+        icon: 'circle-dollar-sign',
     },
 
     // --- Conquistas de Nível (Jornada do Foco) ---
-
-    // Fase 1: O Iniciante
-    LEVEL_5: { 
-        name: 'Nível 5', 
-        description: 'Alcance o nível 5.', 
-        emoji: '⭐' 
+    LEVEL_5: {
+        name: 'Nível 5',
+        description: 'Alcance o nível 5.',
+        icon: 'star',
     },
-    LEVEL_10: { 
-        name: 'Nível 10', 
-        description: 'Alcance o nível 10. Você concluiu a fase de iniciação!', 
-        emoji: '🌟' 
+    LEVEL_10: {
+        name: 'Nível 10',
+        description: 'Alcance o nível 10. Você concluiu a fase de iniciação!',
+        icon: 'sparkles',
     },
-
-    // Fase 2: O Praticante
     LEVEL_15: {
         name: 'Praticante Dedicado',
         description: 'Alcance o nível 15.',
-        emoji: '🎓'
+        icon: 'graduation-cap',
     },
     LEVEL_20: {
         name: 'Veterano do Foco',
         description: 'Alcance o nível 20.',
-        emoji: '🎖️'
+        icon: 'award',
     },
     LEVEL_25: {
         name: 'Especialista em Foco',
         description: 'Alcance o nível 25. Você está no meio da jornada!',
-        emoji: '🏆'
+        icon: 'trophy',
     },
     LEVEL_30: {
         name: 'Mestre da Produtividade',
         description: 'Alcance o nível 30. A consistência é sua aliada.',
-        emoji: '🧠'
+        icon: 'brain',
     },
-
-    // Fase 3: O Mestre
     LEVEL_35: {
         name: 'Virtuoso do Tempo',
         description: 'Alcance o nível 35.',
-        emoji: '🎼'
+        icon: 'music',
     },
     LEVEL_40: {
         name: 'Guru do Foco',
         description: 'Alcance o nível 40.',
-        emoji: '🧘'
+        icon: 'compass',
     },
     LEVEL_45: {
         name: 'Titã da Concentração',
         description: 'Alcance o nível 45.',
-        emoji: '🗿'
+        icon: 'gem',
     },
     LEVEL_50: {
         name: 'Lenda do Foco',
         description: 'Alcançou o nível 50. Você dominou a arte do foco!',
-        emoji: '👑'
-    }
+        icon: 'crown',
+    },
 };

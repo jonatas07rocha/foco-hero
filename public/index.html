@@ -9,13 +9,14 @@
     <link rel="manifest" href="manifest.json">
     <link id="favicon" rel="icon" href="icon-192x192.png" type="image/png">
     <link rel="stylesheet" href="styles.css">
-    <title>Foco Total</title>
+    <title>Foco Hero</title>
 </head>
 <body>
+    <canvas id="theme-effects-canvas" class="hidden" aria-hidden="true"></canvas>
     <div id="app-container">
         <div id="device-shell" class="device-shell">
-            <!-- HEADER -->
-            <header class="flex justify-between items-center mb-2 flex-shrink-0 gap-2">
+            <!-- HEADER PERSISTENTE -->
+            <header class="flex justify-between items-center mb-3 flex-shrink-0 gap-2">
                 <div class="flex items-center space-x-3">
                     <div class="flex items-center space-x-1" title="Moedas">
                         <i data-lucide="circle-dollar-sign" class="w-5 h-5 text-coin"></i>
@@ -31,211 +32,181 @@
                     </div>
                 </div>
                 <div class="flex items-center gap-1.5">
+                    <button type="button" id="mini-timer-pill" class="mini-timer-pill hidden px-2.5 py-1 rounded-full text-xs font-bold flex items-center gap-1" title="Voltar para o Timer">
+                        <i data-lucide="timer" class="w-3.5 h-3.5"></i>
+                        <span id="mini-timer-display">25:00</span>
+                    </button>
                     <div id="focus-method-toggle" class="flex rounded-lg p-1 text-xs font-semibold zen-hidden">
                         <button type="button" data-method="pomodoro" class="method-btn px-2.5 py-1 rounded-md transition-colors" aria-label="Selecionar modo Pomodoro">Pomodoro</button>
                         <button type="button" data-method="adaptativo" class="method-btn px-2.5 py-1 rounded-md transition-colors" aria-label="Selecionar modo Adaptativo">Adaptativo</button>
                     </div>
+                    <button type="button" id="sound-toggle-panel-btn" class="text-muted hover:text-white p-1.5 rounded-lg bg-gray-800 transition-colors" title="Paisagens Sonoras" aria-label="Abrir Paisagens Sonoras">
+                        <i data-lucide="headphones" class="w-4 h-4"></i>
+                    </button>
                     <button type="button" id="zen-mode-btn" class="text-muted hover:text-white p-1.5 rounded-lg bg-gray-800 transition-colors" title="Modo Zen" aria-label="Ativar Modo Zen">
                         <i data-lucide="maximize-2" class="w-4 h-4"></i>
                     </button>
                 </div>
             </header>
 
-            <h1 class="text-xl font-bold text-center mb-2">Foco Total</h1>
-
-            <!-- Gamification UI -->
-            <div id="gamification-status" class="mb-4 px-1 zen-hidden">
-                <div class="flex justify-between items-center mb-1">
-                    <span class="font-bold text-sm">Nível <span id="level-display">1</span></span>
-                    <span class="text-xs text-muted"><span id="xp-display">0</span> / <span id="xp-next-level-display">100</span> XP</span>
+            <!-- Aviso inline no topo do card (usado quando fora da aba Foco) -->
+            <button type="button" id="card-inline-notice" class="hidden w-full mb-3 p-2.5 rounded-xl bg-gray-800 border border-primary text-left flex items-center gap-3 flex-shrink-0 transition-all">
+                <span id="inline-notice-icon" class="w-8 h-8 rounded-lg bg-primary-focus text-white flex items-center justify-center flex-shrink-0">
+                    <i data-lucide="bell" class="w-4 h-4"></i>
+                </span>
+                <div class="min-w-0 flex-grow">
+                    <p id="inline-notice-title" class="text-xs font-bold truncate"></p>
+                    <p id="inline-notice-subtitle" class="text-[11px] text-muted truncate"></p>
                 </div>
-                <div class="w-full bg-gray-700 rounded-full h-2.5">
-                    <div id="xp-bar-fill" class="h-2.5 rounded-full" style="width: 0%"></div>
-                </div>
-            </div>
+                <span id="inline-notice-queue" class="text-[10px] text-muted font-semibold flex-shrink-0"></span>
+            </button>
 
-            <!-- Timer -->
-            <div class="timer-panel flex-shrink-0">
-                <div class="relative w-56 h-56 mx-auto">
-                    <svg class="w-full h-full" viewBox="0 0 100 100">
-                        <circle class="text-gray-800" stroke-width="7" stroke="currentColor" fill="transparent" r="45" cx="50" cy="50" />
-                        <circle id="progress-ring" class="text-primary" stroke-width="7" stroke-linecap="round" stroke="currentColor" fill="transparent" r="45" cx="50" cy="50" style="transform: rotate(-90deg); transform-origin: center;" />
-                    </svg>
-                    <div id="timer-display" class="absolute inset-0 flex items-center justify-center text-5xl font-bold">
-                        25:00
+            <!-- TELA 1: FOCO (TIMER + TAREFAS) -->
+            <section id="view-focus" class="app-view flex-grow flex flex-col">
+                <h1 class="text-xl font-bold text-center mb-2">Foco Hero</h1>
+
+                <div id="gamification-status" class="mb-3 px-1 zen-hidden flex-shrink-0">
+                    <div class="flex justify-between items-center mb-1">
+                        <span class="font-bold text-sm">Nível <span id="level-display">1</span></span>
+                        <span class="text-xs text-muted"><span id="xp-display">0</span> / <span id="xp-next-level-display">100</span> XP</span>
                     </div>
-                </div>
-            </div>
-
-            <!-- Tarefa atual & ciclos -->
-            <div class="text-center mb-2 flex-shrink-0">
-                <p class="text-muted text-sm">Foco em:</p>
-                <p id="current-task-display" class="font-semibold text-base truncate">Nenhuma tarefa selecionada</p>
-                <div id="pomodoro-cycles" class="flex justify-center items-center space-x-2 mt-1 h-6"></div>
-            </div>
-
-            <!-- Player Controls -->
-            <div id="player-controls" class="flex items-center justify-center space-x-3 mb-4 flex-shrink-0">
-                <button type="button" id="internal-interrupt-btn" class="bg-gray-600 hover:bg-gray-700 text-white p-3.5 rounded-full transition-colors transform hover:scale-110" title="Registrar Interrupção Interna" aria-label="Registrar Interrupção Interna">
-                    <i data-lucide="zap-off" class="w-5 h-5"></i>
-                </button>
-                <button type="button" id="start-pause-btn" class="w-20 h-20 text-white font-bold rounded-full text-base transition-all duration-300 transform hover:scale-105 shadow-lg flex items-center justify-center" aria-label="Iniciar/Pausar Timer">
-                    <i data-lucide="play" class="w-8 h-8 pl-1"></i>
-                </button>
-                <button type="button" id="finish-adaptive-btn" class="bg-red-600 hover:bg-red-700 text-white p-3.5 rounded-full transition-colors transform hover:scale-110 hidden" title="Finalizar Sessão Adaptativa" aria-label="Finalizar Sessão Adaptativa">
-                    <i data-lucide="square" class="w-5 h-5"></i>
-                </button>
-                <button type="button" id="external-interrupt-btn" class="bg-gray-600 hover:bg-gray-700 text-white p-3.5 rounded-full transition-colors transform hover:scale-110" title="Registrar Interrupção Externa" aria-label="Registrar Interrupção Externa">
-                    <i data-lucide="user-x" class="w-5 h-5"></i>
-                </button>
-            </div>
-
-            <!-- Painel de Tarefas -->
-            <div class="flex-grow flex flex-col zen-hidden">
-                <div class="flex justify-between items-center mb-2 flex-shrink-0">
-                    <h2 class="text-base font-semibold">Lista de Tarefas do Dia</h2>
-                    <button type="button" id="toggle-completed-tasks-btn" class="bg-gray-700 hover:bg-gray-600 text-white text-xs px-3 py-1 rounded-md transition-colors" aria-label="Mostrar ou esconder tarefas concluídas">Mostrar Concluídas</button>
-                </div>
-
-                <!-- Filtro por Tag -->
-                <div id="task-tag-filter" class="flex flex-wrap gap-1.5 mb-2"></div>
-
-                <div id="task-list" class="flex-grow space-y-2 pr-2"></div>
-
-                <div class="task-input-panel flex flex-col mt-3 gap-2 p-2 rounded-lg flex-shrink-0">
-                    <div class="flex space-x-2 items-center">
-                        <input type="text" id="new-task-input" class="flex-grow rounded-lg px-3 py-2 text-sm border-2 border-transparent focus:border-primary focus:outline-none min-w-0" placeholder="Adicionar nova tarefa..." aria-label="Nome da nova tarefa">
-                        <select id="new-task-tag" class="rounded-lg px-2 py-2 text-xs font-semibold border-2 border-transparent focus:border-primary focus:outline-none" aria-label="Categoria da tarefa">
-                            <option value="Geral">Geral</option>
-                            <option value="Estudo">Estudo</option>
-                            <option value="Trabalho">Trabalho</option>
-                            <option value="Projeto">Projeto</option>
-                            <option value="Pessoal">Pessoal</option>
-                        </select>
-                        <div class="flex items-center">
-                            <label for="new-task-estimate" id="new-task-estimate-label" class="text-sm text-muted mr-1 font-bold">#</label>
-                            <input type="number" id="new-task-estimate" class="w-10 rounded-lg p-2 text-center font-bold border-2 border-transparent focus:border-primary focus:outline-none text-sm" value="1" min="1" aria-label="Estimativa de pomodoros">
-                        </div>
-                        <button type="button" id="add-task-btn" class="bg-primary-focus hover:bg-primary-darker text-white font-bold w-10 h-10 rounded-lg transition-colors text-2xl flex-shrink-0 flex items-center justify-center" aria-label="Adicionar tarefa">+</button>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Controles Secundários -->
-            <div id="secondary-controls" class="flex items-center justify-center space-x-6 mt-4 flex-shrink-0 zen-hidden">
-                <button type="button" id="reset-btn" class="text-muted hover:text-white p-2 rounded-full transition-colors" title="Encerrar e Arquivar o Dia" aria-label="Encerrar o dia">
-                    <i data-lucide="calendar-check" class="w-5 h-5"></i>
-                </button>
-                <button type="button" id="dashboard-btn" class="text-muted hover:text-white p-2 rounded-full transition-colors" title="Ver Dashboard & Histórico" aria-label="Ver Dashboard">
-                    <i data-lucide="layout-dashboard" class="w-5 h-5"></i>
-                </button>
-                <button type="button" id="shop-btn" class="text-muted hover:text-white p-2 rounded-full transition-colors" title="Loja de Temas e Escudos" aria-label="Abrir Loja">
-                    <i data-lucide="shopping-cart" class="w-5 h-5"></i>
-                </button>
-                <button type="button" id="settings-btn" class="text-muted hover:text-white p-2 rounded-full transition-colors" title="Configurações e Backup" aria-label="Configurações">
-                    <i data-lucide="settings-2" class="w-5 h-5"></i>
-                </button>
-                <button type="button" id="help-btn" class="text-muted hover:text-white p-2 rounded-full transition-colors" title="Ajuda e Atalhos" aria-label="Ajuda">
-                    <i data-lucide="help-circle" class="w-5 h-5"></i>
-                </button>
-            </div>
-        </div>
-
-        <!-- Modals -->
-        <div id="alert-modal-overlay" class="modal-overlay">
-            <div class="modal-content text-center modal-border-primary">
-                <p id="alert-modal-message" class="mb-4"></p>
-                <button type="button" id="alert-modal-close-btn" class="bg-primary-focus hover:bg-primary-darker text-white font-bold py-2 px-6 rounded-lg transition-colors" aria-label="Fechar alerta">OK</button>
-            </div>
-        </div>
-
-        <div id="session-end-modal-overlay" class="modal-overlay">
-            <div class="modal-content text-center modal-border-primary">
-                <h2 class="text-xl font-bold mb-2">Sessão Finalizada!</h2>
-                <p id="session-end-message" class="mb-4 text-muted"></p>
-                <div class="flex justify-center items-center space-x-4">
-                    <div id="xp-gain-display" class="font-bold text-lg" style="color: rgb(var(--color-xp-bar));"></div>
-                    <div id="coin-gain-display" class="font-bold text-lg text-coin"></div>
-                </div>
-                <button type="button" id="session-end-close-btn" class="bg-primary-focus hover:bg-primary-darker text-white font-bold py-2 px-6 rounded-lg transition-colors mt-4" aria-label="Fechar modal de fim de sessão">Ótimo!</button>
-            </div>
-        </div>
-
-        <!-- Configurações + Backup -->
-        <div id="settings-modal-overlay" class="modal-overlay">
-            <div class="modal-content modal-border-primary">
-                <h2 class="text-xl font-bold mb-4 text-center">Configurações</h2>
-                <div class="mb-4">
-                    <h3 class="text-base font-semibold text-primary-light mb-2">Tema da Interface</h3>
-                    <div id="color-palette-selector" class="grid grid-cols-3 sm:grid-cols-5 gap-3 p-2 rounded-lg"></div>
-                </div>
-
-                <div class="mb-4">
-                    <h3 class="text-base font-semibold text-primary-light mb-2">Duração (minutos)</h3>
-                    <div class="grid grid-cols-3 gap-2 text-center">
-                        <div>
-                            <label for="focus-duration" class="block text-xs font-medium text-muted">Foco</label>
-                            <input type="number" id="focus-duration" class="mt-1 w-full rounded-lg p-2 text-center font-bold border-2 border-transparent focus:border-primary focus:outline-none" value="25" min="1">
-                        </div>
-                        <div>
-                            <label for="short-break-duration" class="block text-xs font-medium text-muted">Pausa Curta</label>
-                            <input type="number" id="short-break-duration" class="mt-1 w-full rounded-lg p-2 text-center font-bold border-2 border-transparent focus:border-primary focus:outline-none" value="5" min="1">
-                        </div>
-                        <div>
-                            <label for="long-break-duration" class="block text-xs font-medium text-muted">Pausa Longa</label>
-                            <input type="number" id="long-break-duration" class="mt-1 w-full rounded-lg p-2 text-center font-bold border-2 border-transparent focus:border-primary focus:outline-none" value="15" min="1">
-                        </div>
+                    <div class="w-full bg-gray-700 rounded-full h-2.5">
+                        <div id="xp-bar-fill" class="h-2.5 rounded-full" style="width: 0%"></div>
                     </div>
                 </div>
 
-                <div class="mb-4">
-                    <label for="long-break-interval" class="block text-xs font-medium text-muted">Pomodoros para pausa longa</label>
-                    <input type="number" id="long-break-interval" class="mt-1 w-full rounded-lg p-2 text-center font-bold border-2 border-transparent focus:border-primary focus:outline-none" value="4" min="1">
-                </div>
-
-                <div class="mb-4 space-y-2">
-                    <h3 class="text-base font-semibold text-primary-light mb-1">Automação e Alertas</h3>
-                    <label class="flex items-center justify-between text-sm bg-gray-800/70 p-2.5 rounded-lg cursor-pointer">
-                        <span>Iniciar pausa automaticamente</span>
-                        <input type="checkbox" id="auto-start-break">
-                    </label>
-                    <label class="flex items-center justify-between text-sm bg-gray-800/70 p-2.5 rounded-lg cursor-pointer">
-                        <span>Iniciar próximo foco automaticamente</span>
-                        <input type="checkbox" id="auto-start-focus">
-                    </label>
-                    <label class="flex items-center justify-between text-sm bg-gray-800/70 p-2.5 rounded-lg cursor-pointer">
-                        <span>Notificações do navegador</span>
-                        <input type="checkbox" id="notifications-toggle">
-                    </label>
-                    <label class="flex items-center justify-between text-sm bg-gray-800/70 p-2.5 rounded-lg cursor-pointer">
-                        <span>Efeitos sonoros</span>
-                        <input type="checkbox" id="sound-toggle" checked>
-                    </label>
-                </div>
-
-                <div class="mb-4">
-                    <h3 class="text-base font-semibold text-primary-light mb-2">Backup Local (JSON)</h3>
-                    <div class="grid grid-cols-2 gap-2">
-                        <button type="button" id="export-backup-btn" class="bg-gray-700 hover:bg-gray-600 text-white text-xs font-bold py-2 px-3 rounded-lg flex items-center justify-center gap-1.5">
-                            <i data-lucide="download" class="w-4 h-4"></i> Exportar Dados
-                        </button>
-                        <button type="button" id="import-backup-btn" class="bg-gray-700 hover:bg-gray-600 text-white text-xs font-bold py-2 px-3 rounded-lg flex items-center justify-center gap-1.5">
-                            <i data-lucide="upload" class="w-4 h-4"></i> Importar Dados
-                        </button>
+                <div id="timer-panel" class="timer-panel flex-shrink-0">
+                    <div id="timer-ring-view" class="relative w-44 h-44 mx-auto">
+                        <svg class="w-full h-full" viewBox="0 0 100 100">
+                            <circle class="text-gray-800" stroke-width="7" stroke="currentColor" fill="transparent" r="45" cx="50" cy="50" />
+                            <circle id="progress-ring" class="text-primary" stroke-width="7" stroke-linecap="round" stroke="currentColor" fill="transparent" r="45" cx="50" cy="50" style="transform: rotate(-90deg); transform-origin: center;" />
+                        </svg>
+                        <div id="timer-display" class="absolute inset-0 flex items-center justify-center text-4xl font-bold">
+                            25:00
+                        </div>
                     </div>
-                    <input type="file" id="import-backup-input" accept="application/json" class="hidden">
+
+                    <button type="button" id="timer-screen-notice" class="hidden w-full h-44 flex flex-col items-center justify-center text-center px-3 cursor-pointer select-none focus:outline-none">
+                        <span id="screen-notice-badge" class="text-[10px] uppercase tracking-wider font-bold px-2 py-0.5 rounded-full bg-gray-800 text-primary-light mb-2"></span>
+                        <div id="screen-notice-icon" class="w-12 h-12 rounded-2xl bg-gray-800 flex items-center justify-center mb-2 text-primary-light">
+                            <i data-lucide="bell" class="w-6 h-6"></i>
+                        </div>
+                        <p id="screen-notice-title" class="text-base font-bold text-white leading-tight mb-1"></p>
+                        <p id="screen-notice-subtitle" class="text-xs text-muted mb-2"></p>
+                        <p id="screen-notice-rewards" class="text-xs font-bold text-coin mb-2 hidden"></p>
+                        <div class="w-36 bg-gray-800 rounded-full h-1 overflow-hidden mb-1">
+                            <div id="screen-notice-bar" class="h-full bg-primary-focus" style="width: 100%"></div>
+                        </div>
+                        <span id="screen-notice-hint" class="text-[10px] text-muted">Toque na tela para continuar</span>
+                    </button>
                 </div>
 
-                <button type="button" id="settings-save-btn" class="w-full bg-primary-focus hover:bg-primary-darker text-white font-bold py-3 rounded-xl mt-2 transition-colors text-sm">
-                    Salvar e Fechar
-                </button>
-            </div>
-        </div>
+                <div class="text-center mb-2 flex-shrink-0">
+                    <p class="text-muted text-sm">Foco em:</p>
+                    <p id="current-task-display" class="font-semibold text-base truncate">Nenhuma tarefa selecionada</p>
+                    <div id="pomodoro-cycles" class="flex justify-center items-center space-x-2 mt-1 h-6"></div>
+                </div>
 
-        <!-- Dashboard Modal (Largo no Desktop) -->
-        <div id="dashboard-modal-overlay" class="modal-overlay">
-            <div class="modal-content modal-wide modal-border-primary">
-                <h2 class="text-xl font-bold mb-4 text-center">Dashboard & Histórico</h2>
+                <div id="player-controls" class="flex items-center justify-center space-x-3 mb-3 flex-shrink-0">
+                    <button type="button" id="internal-interrupt-btn" class="bg-gray-600 hover:bg-gray-700 text-white p-3.5 rounded-full transition-colors transform hover:scale-110" title="Registrar Interrupção Interna" aria-label="Registrar Interrupção Interna">
+                        <i data-lucide="zap-off" class="w-5 h-5"></i>
+                    </button>
+                    <button type="button" id="start-pause-btn" class="w-16 h-16 text-white font-bold rounded-full text-base transition-all duration-300 transform hover:scale-105 shadow-lg flex items-center justify-center" aria-label="Iniciar/Pausar Timer">
+                        <i data-lucide="play" class="w-8 h-8 pl-1"></i>
+                    </button>
+                    <button type="button" id="finish-adaptive-btn" class="bg-red-600 hover:bg-red-700 text-white p-3.5 rounded-full transition-colors transform hover:scale-110 hidden" title="Finalizar Sessão Adaptativa" aria-label="Finalizar Sessão Adaptativa">
+                        <i data-lucide="square" class="w-5 h-5"></i>
+                    </button>
+                    <button type="button" id="external-interrupt-btn" class="bg-gray-600 hover:bg-gray-700 text-white p-3.5 rounded-full transition-colors transform hover:scale-110" title="Registrar Interrupção Externa" aria-label="Registrar Interrupção Externa">
+                        <i data-lucide="user-x" class="w-5 h-5"></i>
+                    </button>
+                </div>
+
+                <!-- Mixer de Paisagens Sonoras (expansível no card) -->
+                <div id="soundscape-panel" class="hidden dashboard-card p-3 rounded-xl mb-4 space-y-3 flex-shrink-0">
+                    <div class="flex justify-between items-center">
+                        <div class="flex items-center gap-2">
+                            <i data-lucide="headphones" class="w-4 h-4 text-primary-light"></i>
+                            <h3 class="text-sm font-bold">Paisagens Sonoras</h3>
+                        </div>
+                        <div class="flex items-center gap-1.5">
+                            <button type="button" id="sound-preview-btn" class="bg-gray-700 hover:bg-gray-600 text-white text-xs font-semibold px-2.5 py-1 rounded-md transition-colors">Ouvir</button>
+                            <button type="button" id="sound-close-panel-btn" class="text-muted hover:text-white p-1 rounded-md" aria-label="Fechar painel de som">
+                                <i data-lucide="x" class="w-4 h-4"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="space-y-2 bg-gray-800/70 p-2.5 rounded-lg">
+                        <div class="flex items-center justify-between gap-2 text-xs">
+                            <span class="font-semibold text-muted">Volume Geral</span>
+                            <span id="sound-master-volume-value" class="font-bold">65%</span>
+                        </div>
+                        <input type="range" id="sound-master-volume" min="0" max="100" value="65" class="w-full" aria-label="Volume geral das paisagens sonoras">
+                        <div class="grid grid-cols-2 gap-2 pt-1">
+                            <div>
+                                <label for="sound-pause-behavior" class="block text-[10px] text-muted mb-0.5">Nas pausas</label>
+                                <select id="sound-pause-behavior" class="w-full rounded px-2 py-1 text-xs font-semibold">
+                                    <option value="mute">Silenciar</option>
+                                    <option value="duck">Abaixar (25%)</option>
+                                    <option value="continuous">Contínuo</option>
+                                </select>
+                            </div>
+                            <label class="flex items-center justify-between text-[11px] bg-gray-700 px-2 py-1 rounded cursor-pointer mt-3">
+                                <span>Seguir tema</span>
+                                <input type="checkbox" id="sound-sync-theme">
+                            </label>
+                        </div>
+                    </div>
+
+                    <div>
+                        <p class="text-xs font-semibold text-primary-light mb-1.5">Ambientes Offline</p>
+                        <div id="soundscape-built-in-list" class="space-y-1.5"></div>
+                    </div>
+
+                    <div>
+                        <div class="flex justify-between items-center mb-1.5">
+                            <p class="text-xs font-semibold text-primary-light">Suas Músicas Locais</p>
+                            <button type="button" id="import-audio-btn" class="bg-gray-700 hover:bg-gray-600 text-white text-[11px] font-semibold px-2 py-1 rounded flex items-center gap-1">
+                                <i data-lucide="upload" class="w-3.5 h-3.5"></i> Importar
+                            </button>
+                            <input type="file" id="import-audio-input" accept="audio/*" multiple class="hidden">
+                        </div>
+                        <div id="soundscape-custom-list" class="space-y-1.5"></div>
+                    </div>
+                </div>
+
+                <div class="flex-grow flex flex-col zen-hidden min-h-0">
+                    <div class="flex justify-between items-center mb-2 flex-shrink-0 gap-2">
+                        <h2 class="text-base font-semibold">Tarefas do Dia</h2>
+                        <div class="flex items-center gap-1.5">
+                            <button type="button" id="toggle-completed-tasks-btn" class="bg-gray-700 hover:bg-gray-600 text-white p-1.5 rounded-md transition-colors" title="Mostrar tarefas concluídas" aria-label="Mostrar tarefas concluídas">
+                                <i data-lucide="eye" class="w-4 h-4"></i>
+                            </button>
+                            <button type="button" id="reset-btn" class="bg-gray-700 hover:bg-gray-600 text-white p-1.5 rounded-md transition-colors" title="Encerrar e Arquivar o Dia" aria-label="Encerrar o dia">
+                                <i data-lucide="calendar-check" class="w-4 h-4"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div id="task-list" class="flex-grow space-y-2 pr-2"></div>
+
+                    <div class="task-input-panel flex flex-col mt-3 gap-2 p-2 rounded-lg flex-shrink-0">
+                        <div class="flex space-x-2 items-center">
+                            <input type="text" id="new-task-input" class="flex-grow rounded-lg px-3 py-2 text-sm border-2 border-transparent focus:border-primary focus:outline-none min-w-0" placeholder="Adicionar nova tarefa..." aria-label="Nome da nova tarefa">
+                            <div class="flex items-center">
+                                <label for="new-task-estimate" id="new-task-estimate-label" class="text-sm text-muted mr-1 font-bold">#</label>
+                                <input type="number" id="new-task-estimate" class="w-10 rounded-lg p-2 text-center font-bold border-2 border-transparent focus:border-primary focus:outline-none text-sm" value="1" min="1" aria-label="Estimativa de pomodoros">
+                            </div>
+                            <button type="button" id="add-task-btn" class="bg-primary-focus hover:bg-primary-darker text-white font-bold w-10 h-10 rounded-lg transition-colors text-2xl flex-shrink-0 flex items-center justify-center" aria-label="Adicionar tarefa">+</button>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- TELA 2: DASHBOARD -->
+            <section id="view-dashboard" class="app-view hidden flex-grow flex flex-col">
+                <h2 class="text-xl font-bold mb-3 text-center">Dashboard & Histórico</h2>
 
                 <div class="flex justify-center mb-4 rounded-lg p-1 text-sm font-semibold bg-gray-800">
                     <button type="button" data-tab="stats" class="dashboard-tab flex-1 px-3 py-2 rounded-md transition-colors active">Estatísticas</button>
@@ -243,59 +214,51 @@
                     <button type="button" data-tab="achievements" class="dashboard-tab flex-1 px-3 py-2 rounded-md transition-colors">Conquistas</button>
                 </div>
 
-                <div id="dashboard-stats-content" class="dashboard-tab-content space-y-4">
-                    <div class="dashboard-card p-4 rounded-lg">
-                        <h3 class="text-base font-semibold text-primary-light mb-3">Consistência</h3>
-                        <div class="grid grid-cols-3 gap-3 text-center">
-                            <div>
-                                <p class="text-2xl font-bold text-streak" id="dashboard-current-streak">0</p>
-                                <p class="text-xs text-muted">Sequência Atual</p>
-                            </div>
-                            <div>
-                                <p class="text-2xl font-bold" id="dashboard-longest-streak">0</p>
-                                <p class="text-xs text-muted">Maior Sequência</p>
-                            </div>
-                            <div>
-                                <p class="text-2xl font-bold text-primary-light" id="dashboard-freezes-count">0</p>
-                                <p class="text-xs text-muted">Escudos</p>
+                <div class="in-card-scroll pr-2">
+                    <div id="dashboard-stats-content" class="dashboard-tab-content space-y-4">
+                        <div class="dashboard-card p-4 rounded-lg">
+                            <h3 class="text-base font-semibold text-primary-light mb-3">Consistência</h3>
+                            <div class="grid grid-cols-3 gap-3 text-center">
+                                <div>
+                                    <p class="text-2xl font-bold text-streak" id="dashboard-current-streak">0</p>
+                                    <p class="text-xs text-muted">Sequência Atual</p>
+                                </div>
+                                <div>
+                                    <p class="text-2xl font-bold" id="dashboard-longest-streak">0</p>
+                                    <p class="text-xs text-muted">Maior Sequência</p>
+                                </div>
+                                <div>
+                                    <p class="text-2xl font-bold text-primary-light" id="dashboard-freezes-count">0</p>
+                                    <p class="text-xs text-muted">Escudos</p>
+                                </div>
                             </div>
                         </div>
-                    </div>
 
-                    <div class="dashboard-card p-4 rounded-lg">
-                        <h3 class="text-base font-semibold text-primary-light mb-3">Últimos 7 Dias</h3>
-                        <div id="dashboard-weekly-summary" class="grid grid-cols-3 gap-2 mb-4"></div>
-                        <div id="dashboard-weekly-chart" class="flex items-end justify-between gap-2 h-32 p-2 bg-gray-800/70 rounded-lg"></div>
-                    </div>
+                        <div class="dashboard-card p-4 rounded-lg">
+                            <h3 class="text-base font-semibold text-primary-light mb-3">Últimos 7 Dias</h3>
+                            <div id="dashboard-weekly-summary" class="grid grid-cols-3 gap-2 mb-4"></div>
+                            <div id="dashboard-weekly-chart" class="flex items-end justify-between gap-2 h-32 p-2 bg-gray-800/70 rounded-lg"></div>
+                        </div>
 
-                    <div class="grid grid-cols-2 gap-3">
-                        <div class="dashboard-card p-3 rounded-lg">
-                            <h3 class="text-sm font-semibold text-primary-light mb-2">Interrupções (7d)</h3>
+                        <div class="dashboard-card p-4 rounded-lg">
+                            <h3 class="text-base font-semibold text-primary-light mb-2">Interrupções (7 dias)</h3>
                             <div id="dashboard-interruptions-summary"></div>
                         </div>
-                        <div class="dashboard-card p-3 rounded-lg">
-                            <h3 class="text-sm font-semibold text-primary-light mb-2">Por Categoria (7d)</h3>
-                            <div id="dashboard-tags-summary" class="space-y-1.5"></div>
+
+                        <div class="dashboard-card p-4 rounded-lg">
+                            <h3 class="text-base font-semibold text-primary-light mb-3">Relatório Detalhado de Hoje</h3>
+                            <div id="dashboard-daily-report" class="space-y-3"></div>
                         </div>
                     </div>
 
-                    <div class="dashboard-card p-4 rounded-lg">
-                        <h3 class="text-base font-semibold text-primary-light mb-3">Relatório Detalhado de Hoje</h3>
-                        <div id="dashboard-daily-report" class="space-y-3"></div>
-                    </div>
+                    <div id="dashboard-missions-content" class="dashboard-tab-content hidden space-y-3"></div>
+                    <div id="dashboard-achievements-content" class="dashboard-tab-content hidden space-y-3"></div>
                 </div>
+            </section>
 
-                <div id="dashboard-missions-content" class="dashboard-tab-content hidden space-y-3 max-h-80 overflow-y-auto p-2"></div>
-                <div id="dashboard-achievements-content" class="dashboard-tab-content hidden space-y-3 max-h-80 overflow-y-auto p-2"></div>
-
-                <button type="button" id="dashboard-modal-close-btn" class="w-full bg-gray-600 hover:bg-gray-700 text-white font-bold py-2 rounded-xl mt-6 transition-colors">Fechar</button>
-            </div>
-        </div>
-
-        <!-- Shop Modal -->
-        <div id="shop-modal-overlay" class="modal-overlay">
-            <div class="modal-content modal-wide modal-border-primary">
-                <div class="flex justify-between items-center mb-4">
+            <!-- TELA 3: LOJA -->
+            <section id="view-shop" class="app-view hidden flex-grow flex flex-col">
+                <div class="flex justify-between items-center mb-3">
                     <h2 class="text-xl font-bold">Loja do Foco</h2>
                     <div class="flex items-center gap-2">
                         <div class="flex items-center space-x-1 bg-gray-800 px-2.5 py-1 rounded-full" title="Escudos de Sequência">
@@ -308,38 +271,131 @@
                         </div>
                     </div>
                 </div>
-                <div id="shop-collections-container" class="space-y-6 max-h-96 overflow-y-auto p-2 -mr-4 pr-4"></div>
-                <button type="button" id="shop-modal-close-btn" class="w-full bg-gray-600 hover:bg-gray-700 text-white font-bold py-2 rounded-xl mt-6 transition-colors">Fechar</button>
-            </div>
+                <div id="shop-collections-container" class="space-y-6 pr-2"></div>
+            </section>
+
+            <!-- TELA 4: CONFIGURAÇÕES -->
+            <section id="view-settings" class="app-view hidden flex-grow flex flex-col">
+                <h2 class="text-xl font-bold mb-3 text-center">Configurações</h2>
+                <div class="in-card-scroll pr-2 space-y-4">
+                    <div>
+                        <h3 class="text-base font-semibold text-primary-light mb-2">Tema da Interface</h3>
+                        <div id="color-palette-selector" class="grid grid-cols-3 gap-2.5 p-2 rounded-lg"></div>
+                    </div>
+
+                    <div>
+                        <h3 class="text-base font-semibold text-primary-light mb-2">Duração (minutos)</h3>
+                        <div class="grid grid-cols-3 gap-2 text-center">
+                            <div>
+                                <label for="focus-duration" class="block text-xs font-medium text-muted">Foco</label>
+                                <input type="number" id="focus-duration" class="mt-1 w-full rounded-lg p-2 text-center font-bold border-2 border-transparent focus:border-primary focus:outline-none" value="25" min="1">
+                            </div>
+                            <div>
+                                <label for="short-break-duration" class="block text-xs font-medium text-muted">Pausa Curta</label>
+                                <input type="number" id="short-break-duration" class="mt-1 w-full rounded-lg p-2 text-center font-bold border-2 border-transparent focus:border-primary focus:outline-none" value="5" min="1">
+                            </div>
+                            <div>
+                                <label for="long-break-duration" class="block text-xs font-medium text-muted">Pausa Longa</label>
+                                <input type="number" id="long-break-duration" class="mt-1 w-full rounded-lg p-2 text-center font-bold border-2 border-transparent focus:border-primary focus:outline-none" value="15" min="1">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div>
+                        <label for="long-break-interval" class="block text-xs font-medium text-muted">Pomodoros para pausa longa</label>
+                        <input type="number" id="long-break-interval" class="mt-1 w-full rounded-lg p-2 text-center font-bold border-2 border-transparent focus:border-primary focus:outline-none" value="4" min="1">
+                    </div>
+
+                    <div class="space-y-2">
+                        <h3 class="text-base font-semibold text-primary-light mb-1">Automação e Alertas</h3>
+                        <label class="flex items-center justify-between text-sm bg-gray-800/70 p-2.5 rounded-lg cursor-pointer">
+                            <span>Iniciar pausa automaticamente</span>
+                            <input type="checkbox" id="auto-start-break">
+                        </label>
+                        <label class="flex items-center justify-between text-sm bg-gray-800/70 p-2.5 rounded-lg cursor-pointer">
+                            <span>Iniciar próximo foco automaticamente</span>
+                            <input type="checkbox" id="auto-start-focus">
+                        </label>
+                        <label class="flex items-center justify-between text-sm bg-gray-800/70 p-2.5 rounded-lg cursor-pointer">
+                            <span>Notificações do navegador</span>
+                            <input type="checkbox" id="notifications-toggle">
+                        </label>
+                        <label class="flex items-center justify-between text-sm bg-gray-800/70 p-2.5 rounded-lg cursor-pointer">
+                            <span>Efeitos sonoros</span>
+                            <input type="checkbox" id="sound-toggle" checked>
+                        </label>
+                    </div>
+
+                    <div>
+                        <h3 class="text-base font-semibold text-primary-light mb-2">Backup Local (JSON)</h3>
+                        <div class="grid grid-cols-2 gap-2">
+                            <button type="button" id="export-backup-btn" class="bg-gray-700 hover:bg-gray-600 text-white text-xs font-bold py-2 px-3 rounded-lg flex items-center justify-center gap-1.5">
+                                <i data-lucide="download" class="w-4 h-4"></i> Exportar Dados
+                            </button>
+                            <button type="button" id="import-backup-btn" class="bg-gray-700 hover:bg-gray-600 text-white text-xs font-bold py-2 px-3 rounded-lg flex items-center justify-center gap-1.5">
+                                <i data-lucide="upload" class="w-4 h-4"></i> Importar Dados
+                            </button>
+                        </div>
+                        <input type="file" id="import-backup-input" accept="application/json" class="hidden">
+                    </div>
+
+                    <button type="button" id="settings-save-btn" class="w-full bg-primary-focus hover:bg-primary-darker text-white font-bold py-3 rounded-xl transition-colors text-sm">
+                        Salvar e Voltar ao Foco
+                    </button>
+                </div>
+            </section>
+
+            <!-- TELA 5: AJUDA -->
+            <section id="view-help" class="app-view hidden flex-grow flex flex-col">
+                <h2 class="text-xl font-bold mb-3 text-center">Ajuda & Atalhos</h2>
+                <div class="in-card-scroll pr-2 text-sm space-y-4">
+                    <div id="help-content-pomodoro" class="space-y-2 dashboard-card p-4 rounded-lg">
+                        <h3 class="text-base font-semibold text-primary-light">Técnica Pomodoro</h3>
+                        <p>Trabalhe em blocos cronometrados (padrão 25 min) com pausas curtas e uma pausa longa após 4 ciclos.</p>
+                    </div>
+                    <div id="help-content-adaptativo" class="space-y-2 dashboard-card p-4 rounded-lg hidden">
+                        <h3 class="text-base font-semibold text-primary-light">Método Adaptativo</h3>
+                        <p>O cronômetro conta para cima sem limite fixo. Você pode pausar sem encerrar a sessão e finalizar no botão quadrado vermelho quando concluir.</p>
+                    </div>
+                    <div class="space-y-1.5 dashboard-card p-4 rounded-lg">
+                        <h3 class="text-base font-semibold text-primary-light">Atalhos de Teclado</h3>
+                        <p><span class="font-bold">Espaço:</span> Iniciar / Pausar timer</p>
+                        <p><span class="font-bold">N:</span> Focar campo de nova tarefa</p>
+                        <p><span class="font-bold">Esc:</span> Fechar diálogo, sair do Modo Zen ou voltar ao Foco</p>
+                    </div>
+                    <div class="space-y-1.5 dashboard-card p-4 rounded-lg">
+                        <h3 class="text-base font-semibold text-primary-light">Escudo de Sequência</h3>
+                        <p class="text-muted">Comprável na Loja com moedas, protege automaticamente sua sequência de dias caso você falhe um dia.</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- BARRA DE NAVEGAÇÃO INFERIOR -->
+            <nav id="bottom-nav" class="bottom-nav flex items-center justify-between gap-1 mt-4 flex-shrink-0 zen-hidden" aria-label="Navegação principal">
+                <button type="button" data-nav-view="focus" class="nav-tab active" aria-label="Ir para Foco">
+                    <i data-lucide="timer" class="w-4 h-4"></i>
+                    <span>Foco</span>
+                </button>
+                <button type="button" data-nav-view="dashboard" class="nav-tab" aria-label="Ir para Dashboard">
+                    <i data-lucide="layout-dashboard" class="w-4 h-4"></i>
+                    <span>Painel</span>
+                </button>
+                <button type="button" data-nav-view="shop" class="nav-tab" aria-label="Ir para Loja">
+                    <i data-lucide="shopping-cart" class="w-4 h-4"></i>
+                    <span>Loja</span>
+                </button>
+                <button type="button" data-nav-view="settings" class="nav-tab" aria-label="Ir para Configurações">
+                    <i data-lucide="settings-2" class="w-4 h-4"></i>
+                    <span>Ajustes</span>
+                </button>
+                <button type="button" data-nav-view="help" class="nav-tab" aria-label="Ir para Ajuda">
+                    <i data-lucide="help-circle" class="w-4 h-4"></i>
+                    <span>Ajuda</span>
+                </button>
+            </nav>
         </div>
 
-        <!-- Help Modal -->
-        <div id="help-modal-overlay" class="modal-overlay">
-            <div class="modal-content text-sm modal-border-primary space-y-4">
-                <h2 class="text-xl font-bold text-center">Ajuda & Atalhos</h2>
-                <div id="help-content-pomodoro" class="space-y-2">
-                    <h3 class="text-base font-semibold text-primary-light">Técnica Pomodoro</h3>
-                    <p>Trabalhe em blocos cronometrados (padrão 25 min) com pausas curtas e uma pausa longa após 4 ciclos.</p>
-                </div>
-                <div id="help-content-adaptativo" class="space-y-2 hidden">
-                    <h3 class="text-base font-semibold text-primary-light">Método Adaptativo</h3>
-                    <p>O cronômetro conta para cima sem limite fixo. Você pode pausar sem encerrar a sessão e finalizar no botão quadrado vermelho quando concluir.</p>
-                </div>
-                <div class="space-y-1.5">
-                    <h3 class="text-base font-semibold text-primary-light">Atalhos de Teclado</h3>
-                    <p><span class="font-bold">Espaço:</span> Iniciar / Pausar timer</p>
-                    <p><span class="font-bold">N:</span> Focar campo de nova tarefa</p>
-                    <p><span class="font-bold">Esc:</span> Fechar modal ou sair do Modo Zen</p>
-                </div>
-                <div class="space-y-1.5">
-                    <h3 class="text-base font-semibold text-primary-light">Escudo de Sequência</h3>
-                    <p class="text-muted">Comprável na Loja com moedas, protege automaticamente sua sequência de dias caso você falhe um dia.</p>
-                </div>
-                <button type="button" id="help-modal-close-btn" class="w-full bg-primary-focus hover:bg-primary-darker text-white font-bold py-2 rounded-xl transition-colors">Entendi!</button>
-            </div>
-        </div>
-
-        <!-- Archive / End Day Modal -->
+        <!-- Diálogos pontuais de confirmação -->
         <div id="reset-confirm-modal-overlay" class="modal-overlay">
             <div class="modal-content text-center">
                 <h2 class="text-xl font-bold mb-2">Encerrar o Dia?</h2>
@@ -363,26 +419,10 @@
             </div>
         </div>
 
-        <!-- Toast Notifications -->
-        <div id="achievement-toast" class="toast-notification">
-            <span class="text-2xl mr-4">🏆</span>
-            <div>
-                <p class="font-bold">Conquista Desbloqueada!</p>
-                <p id="achievement-toast-name" class="text-sm"></p>
-            </div>
-        </div>
-        <div id="mission-toast" class="toast-notification">
-            <span id="mission-toast-emoji" class="text-2xl mr-4">🎯</span>
-            <div>
-                <p class="font-bold">Missão Cumprida!</p>
-                <p id="mission-toast-name" class="text-sm"></p>
-            </div>
-        </div>
-
         <!-- Banner PWA -->
         <div id="install-banner" class="install-banner-theme">
             <div class="max-w-md mx-auto">
-                <p class="font-semibold mb-2">Instale o Foco Total!</p>
+                <p class="font-semibold mb-2">Instale o Foco Hero!</p>
                 <p class="text-sm mb-3">Adicione à sua tela inicial para usar offline como um aplicativo nativo.</p>
                 <button type="button" id="install-btn" class="font-bold py-2 px-5 rounded-lg mr-2">Instalar</button>
                 <button type="button" id="install-dismiss-btn" class="bg-transparent border border-white text-white font-bold py-2 px-5 rounded-lg">Agora não</button>

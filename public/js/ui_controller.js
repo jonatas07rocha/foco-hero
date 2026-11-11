@@ -3,13 +3,16 @@
  * Manipulação do DOM, sanitização anti-XSS, Modo Zen, Dashboard analítico e temas.
  */
 
-import { state, TASK_TAGS } from './state.js';
+import { state } from './state.js';
 import { dom } from './ui.js';
 import { themes } from './themes.js';
 import { achievements } from './achievements.js';
+import { missionsData } from './missions.js';
 import { xpForNextLevel, getDailyStats } from './gamification.js';
 import { shopCollections } from './shop.js';
 import { getWeeklyAggregates } from './analytics.js';
+import { builtInSoundscapes, isSoundscapeUnlocked } from './soundscapes.js';
+import { applyThemeEffect } from './theme_effects.js';
 import { renderIcons } from './icons.js';
 
 export function escapeHtml(str) {
@@ -30,29 +33,14 @@ function toCssColor(colorValue) {
     return `rgb(${trimmed})`;
 }
 
-export function renderTagFilter() {
-    if (!dom.taskTagFilter) return;
-    const filters = ['Todas', ...TASK_TAGS];
-    dom.taskTagFilter.innerHTML = filters
-        .map((tag) => {
-            const active = state.selectedTagFilter === tag;
-            return `<button type="button" data-filter-tag="${escapeHtml(tag)}" class="px-2 py-0.5 rounded-full text-xs font-semibold transition-colors ${active ? 'bg-primary-focus text-white' : 'bg-gray-700 text-gray-300 hover:bg-gray-600'}">${escapeHtml(tag)}</button>`;
-        })
-        .join('');
-}
-
 export function renderTasks() {
-    renderTagFilter();
     if (!dom.taskListEl) return;
 
-    let tasksToRender = state.showCompletedTasks ? state.tasks : state.tasks.filter((t) => !t.completed);
-    if (state.selectedTagFilter && state.selectedTagFilter !== 'Todas') {
-        tasksToRender = tasksToRender.filter((t) => (t.tag || 'Geral') === state.selectedTagFilter);
-    }
+    const tasksToRender = state.showCompletedTasks ? state.tasks : state.tasks.filter((t) => !t.completed);
 
     dom.taskListEl.innerHTML =
         tasksToRender.length === 0
-            ? '<p class="text-muted text-center text-sm py-2">Nenhuma tarefa neste filtro. Adicione uma abaixo!</p>'
+            ? '<p class="text-muted text-center text-sm py-2">Adicione a sua primeira tarefa!</p>'
             : '';
 
     tasksToRender.forEach((task) => {
@@ -61,7 +49,6 @@ export function renderTasks() {
         taskEl.dataset.id = task.id;
 
         const safeName = escapeHtml(task.name);
-        const safeTag = escapeHtml(task.tag || 'Geral');
 
         taskEl.innerHTML = `
         <div class="flex justify-between items-center gap-2">
@@ -72,10 +59,7 @@ export function renderTasks() {
                 ${
                     task.isEditing
                         ? `<input type="text" value="${safeName}" class="task-edit-input rounded px-2 py-1 text-sm flex-grow mx-1 border-2 border-primary focus:outline-none" data-edit-input-id="${task.id}" aria-label="Editar nome da tarefa ${safeName}">`
-                        : `<div class="min-w-0 flex-grow">
-                               <span class="task-name block truncate text-sm ${task.completed ? 'line-through' : ''}">${safeName}</span>
-                               <span class="inline-block text-[10px] px-1.5 py-0.5 rounded bg-gray-800 text-primary-light font-semibold mt-0.5">${safeTag}</span>
-                           </div>`
+                        : `<span class="task-name truncate text-sm ${task.completed ? 'line-through' : ''}">${safeName}</span>`
                 }
             </div>
             <div class="flex items-center space-x-0.5 flex-shrink-0">
@@ -112,12 +96,15 @@ export function renderMissions() {
         const isCompleted = state.gamification.completedMissions.includes(mission.id);
         const currentProgress = Math.min(stats[mission.metric] || 0, mission.goal);
         const progressPercent = (currentProgress / mission.goal) * 100;
+        const missionIcon = mission.icon || missionsData[mission.id]?.icon || 'target';
 
         const el = document.createElement('div');
         el.className = `mission-item p-4 rounded-lg ${isCompleted ? 'completed' : ''}`;
         el.innerHTML = `
             <div class="flex items-start space-x-4">
-                <span class="text-3xl">${mission.emoji}</span>
+                <div class="w-10 h-10 rounded-lg bg-gray-800 flex items-center justify-center flex-shrink-0 text-primary-light">
+                    <i data-lucide="${escapeHtml(missionIcon)}" class="w-5 h-5"></i>
+                </div>
                 <div class="flex-grow">
                     <p class="font-bold">${escapeHtml(mission.title)}</p>
                     <p class="text-sm text-muted">${escapeHtml(mission.description)}</p>
@@ -136,6 +123,7 @@ export function renderMissions() {
         `;
         dom.dashboardMissionsContent.appendChild(el);
     });
+    renderIcons(dom.dashboardMissionsContent);
 }
 
 export function renderAchievements() {
@@ -148,7 +136,9 @@ export function renderAchievements() {
         const el = document.createElement('div');
         el.className = `achievement-item p-4 rounded-lg flex items-center space-x-4 ${isUnlocked ? 'unlocked' : 'opacity-60'}`;
         el.innerHTML = `
-            <span class="text-5xl">${achievement.emoji}</span>
+            <div class="achievement-icon-box w-12 h-12 rounded-xl bg-gray-800 flex items-center justify-center flex-shrink-0">
+                <i data-lucide="${escapeHtml(achievement.icon || 'trophy')}" class="w-6 h-6"></i>
+            </div>
             <div>
                 <p class="font-bold">${escapeHtml(achievement.name)}</p>
                 <p class="text-sm text-muted">${escapeHtml(achievement.description)}</p>
@@ -156,6 +146,7 @@ export function renderAchievements() {
         `;
         dom.dashboardAchievementsContent.appendChild(el);
     });
+    renderIcons(dom.dashboardAchievementsContent);
 }
 
 export function renderDashboard() {
@@ -212,30 +203,6 @@ export function renderDashboard() {
         `;
     }
 
-    if (dom.dashboardTagsSummary) {
-        if (weekly.sortedTags.length === 0) {
-            dom.dashboardTagsSummary.innerHTML = '<p class="text-xs text-muted">Sem sessões registradas nos últimos 7 dias.</p>';
-        } else {
-            const totalSecs = weekly.totalFocusSeconds || 1;
-            dom.dashboardTagsSummary.innerHTML = weekly.sortedTags
-                .map((entry) => {
-                    const pct = Math.round((entry.seconds / totalSecs) * 100);
-                    return `
-                        <div>
-                            <div class="flex justify-between text-xs mb-0.5">
-                                <span class="font-semibold">${escapeHtml(entry.tag)}</span>
-                                <span class="text-muted">${formatTime(entry.seconds)} (${pct}%)</span>
-                            </div>
-                            <div class="w-full bg-gray-700 rounded-full h-1.5">
-                                <div class="bg-primary-focus h-1.5 rounded-full" style="width: ${pct}%"></div>
-                            </div>
-                        </div>
-                    `;
-                })
-                .join('');
-        }
-    }
-
     if (dom.dashboardDailyReport) {
         if (state.tasks.length === 0) {
             dom.dashboardDailyReport.innerHTML = '<p class="text-muted text-center text-sm">Nenhuma tarefa para exibir.</p>';
@@ -246,10 +213,7 @@ export function renderDashboard() {
                 .forEach((task) => {
                     statsHTML += `
                     <div class="stats-item p-3 rounded-lg ${task.completed ? 'opacity-60' : ''}">
-                        <div class="flex justify-between items-center gap-2">
-                            <p class="font-bold truncate ${task.completed ? 'line-through' : ''}">${escapeHtml(task.name)}</p>
-                            <span class="text-[10px] px-1.5 py-0.5 rounded bg-gray-800 text-primary-light font-semibold flex-shrink-0">${escapeHtml(task.tag || 'Geral')}</span>
-                        </div>
+                        <p class="font-bold truncate ${task.completed ? 'line-through' : ''}">${escapeHtml(task.name)}</p>
                         <div class="grid grid-cols-4 gap-2 mt-2 text-center text-xs">
                             <div><p class="text-xs text-muted">Foco</p><p class="font-semibold">${formatTime(task.focusTime)}</p></div>
                             <div><p class="text-xs text-muted">Ciclos</p><p class="font-semibold">${task.pomodorosCompleted}/${task.pomodoroEstimate}</p></div>
@@ -319,7 +283,12 @@ export function updateTimerDisplay() {
             : `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
 
     if (dom.timerDisplay) dom.timerDisplay.textContent = display;
-    document.title = `${display} - Foco Total`;
+    if (dom.miniTimerDisplay) dom.miniTimerDisplay.textContent = display;
+    if (dom.miniTimerPill) {
+        const showMini = state.activeView !== 'focus' && (state.isRunning || state.isPaused);
+        dom.miniTimerPill.classList.toggle('hidden', !showMini);
+    }
+    document.title = `${display} - Foco Hero`;
 
     if (dom.progressRing) {
         const circumference = 2 * Math.PI * 45;
@@ -366,6 +335,139 @@ export function updateZenModeUI() {
     }
 }
 
+export function switchView(viewName) {
+    state.activeView = viewName;
+
+    const viewMap = {
+        focus: dom.viewFocus,
+        dashboard: dom.viewDashboard,
+        shop: dom.viewShop,
+        settings: dom.viewSettings,
+        help: dom.viewHelp,
+    };
+
+    Object.entries(viewMap).forEach(([name, el]) => {
+        if (el) el.classList.toggle('hidden', name !== viewName);
+    });
+
+    const isFocus = viewName === 'focus';
+    if (dom.focusMethodToggle) dom.focusMethodToggle.classList.toggle('hidden', !isFocus);
+    if (dom.zenModeBtn) dom.zenModeBtn.classList.toggle('hidden', !isFocus);
+    if (dom.soundTogglePanelBtn) dom.soundTogglePanelBtn.classList.toggle('hidden', !isFocus);
+
+    if (dom.bottomNav) {
+        dom.bottomNav.querySelectorAll('[data-nav-view]').forEach((btn) => {
+            btn.classList.toggle('active', btn.dataset.navView === viewName);
+        });
+    }
+
+    updateTimerDisplay();
+    if (activeNotice) {
+        renderCurrentScreenNotice();
+    }
+}
+
+export function updateSoundToggleButton() {
+    if (!dom.soundTogglePanelBtn) return;
+    const hasActiveLayers = Object.keys(state.settings.soundscapes?.activeLayers || {}).length > 0;
+    dom.soundTogglePanelBtn.classList.toggle('bg-primary-focus', hasActiveLayers);
+    dom.soundTogglePanelBtn.classList.toggle('text-white', hasActiveLayers);
+    dom.soundTogglePanelBtn.classList.toggle('bg-gray-800', !hasActiveLayers);
+    dom.soundTogglePanelBtn.classList.toggle('text-muted', !hasActiveLayers);
+}
+
+export function renderSoundscapesPanel() {
+    updateSoundToggleButton();
+    if (!dom.soundscapePanel) return;
+
+    dom.soundscapePanel.classList.toggle('hidden', !state.soundPanelOpen);
+
+    const cfg = state.settings.soundscapes || {};
+    const activeLayers = cfg.activeLayers || {};
+    const unlockedPacks = state.gamification.unlockedSoundPacks || [];
+
+    if (dom.soundMasterVolume) {
+        const pct = Math.round((cfg.masterVolume ?? 0.65) * 100);
+        dom.soundMasterVolume.value = pct;
+        if (dom.soundMasterVolumeValue) dom.soundMasterVolumeValue.textContent = `${pct}%`;
+    }
+    if (dom.soundPauseBehavior) dom.soundPauseBehavior.value = cfg.pauseBehavior || 'mute';
+    if (dom.soundSyncTheme) dom.soundSyncTheme.checked = Boolean(cfg.syncWithTheme);
+    if (dom.soundPreviewBtn) {
+        dom.soundPreviewBtn.textContent = state.isSoundPreviewing ? 'Parar' : 'Ouvir';
+        dom.soundPreviewBtn.classList.toggle('bg-primary-focus', state.isSoundPreviewing);
+        dom.soundPreviewBtn.classList.toggle('bg-gray-700', !state.isSoundPreviewing);
+    }
+
+    if (dom.soundscapeBuiltInList) {
+        dom.soundscapeBuiltInList.innerHTML = builtInSoundscapes
+            .map((sound) => {
+                const unlocked = isSoundscapeUnlocked(sound, unlockedPacks);
+                const isActive = Object.prototype.hasOwnProperty.call(activeLayers, sound.id);
+                const volPct = Math.round((activeLayers[sound.id] ?? 0.7) * 100);
+
+                return `
+                    <div class="p-2 rounded-lg bg-gray-800/70 ${unlocked ? '' : 'opacity-60'}">
+                        <div class="flex items-center justify-between gap-2">
+                            <button type="button" data-sound-toggle="${escapeHtml(sound.id)}" class="flex items-center gap-2 text-left flex-grow min-w-0 ${unlocked ? '' : 'cursor-not-allowed'}" ${unlocked ? '' : 'disabled'}>
+                                <span class="w-7 h-7 rounded-md flex items-center justify-center flex-shrink-0 ${isActive ? 'bg-primary-focus text-white' : 'bg-gray-700 text-muted'}">
+                                    <i data-lucide="${unlocked ? escapeHtml(sound.icon) : 'lock'}" class="w-4 h-4"></i>
+                                </span>
+                                <div class="min-w-0">
+                                    <p class="text-xs font-semibold truncate">${escapeHtml(sound.name)}</p>
+                                    <p class="text-[10px] text-muted truncate">${unlocked ? escapeHtml(sound.description) : 'Desbloqueie na Loja'}</p>
+                                </div>
+                            </button>
+                            ${
+                                isActive
+                                    ? `<input type="range" data-sound-volume="${escapeHtml(sound.id)}" min="0" max="100" value="${volPct}" class="w-20" aria-label="Volume de ${escapeHtml(sound.name)}">`
+                                    : ''
+                            }
+                        </div>
+                    </div>
+                `;
+            })
+            .join('');
+        renderIcons(dom.soundscapeBuiltInList);
+    }
+
+    if (dom.soundscapeCustomList) {
+        const tracks = state.customAudios || [];
+        if (tracks.length === 0) {
+            dom.soundscapeCustomList.innerHTML = '<p class="text-[11px] text-muted">Nenhuma música importada ainda (salvas offline no navegador).</p>';
+        } else {
+            dom.soundscapeCustomList.innerHTML = tracks
+                .map((track) => {
+                    const layerId = `custom:${track.id}`;
+                    const isActive = Object.prototype.hasOwnProperty.call(activeLayers, layerId);
+                    const volPct = Math.round((activeLayers[layerId] ?? 0.7) * 100);
+                    return `
+                        <div class="p-2 rounded-lg bg-gray-800/70">
+                            <div class="flex items-center justify-between gap-2">
+                                <button type="button" data-sound-toggle="${escapeHtml(layerId)}" class="flex items-center gap-2 text-left flex-grow min-w-0">
+                                    <span class="w-7 h-7 rounded-md flex items-center justify-center flex-shrink-0 ${isActive ? 'bg-primary-focus text-white' : 'bg-gray-700 text-muted'}">
+                                        <i data-lucide="music" class="w-4 h-4"></i>
+                                    </span>
+                                    <span class="text-xs font-semibold truncate">${escapeHtml(track.name)}</span>
+                                </button>
+                                ${
+                                    isActive
+                                        ? `<input type="range" data-sound-volume="${escapeHtml(layerId)}" min="0" max="100" value="${volPct}" class="w-20" aria-label="Volume de ${escapeHtml(track.name)}">`
+                                        : ''
+                                }
+                                <button type="button" data-delete-audio="${escapeHtml(track.id)}" class="text-muted hover:text-red-500 p-1 rounded" title="Remover música" aria-label="Remover ${escapeHtml(track.name)}">
+                                    <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+                                </button>
+                            </div>
+                        </div>
+                    `;
+                })
+                .join('');
+            renderIcons(dom.soundscapeCustomList);
+        }
+    }
+}
+
 export function updateUI() {
     updateTimerDisplay();
     const currentTheme = themes[state.previewThemeId || state.settings.theme] || themes.brasil_dark;
@@ -383,7 +485,7 @@ export function updateUI() {
     const ariaLabelText = state.isRunning ? 'Pausar Timer' : 'Iniciar Timer';
 
     if (dom.startPauseBtn) {
-        dom.startPauseBtn.className = `w-20 h-20 text-white font-bold rounded-full text-base transition-all duration-300 transform hover:scale-105 shadow-lg flex items-center justify-center ${btnBgClass}`;
+        dom.startPauseBtn.className = `w-16 h-16 text-white font-bold rounded-full text-base transition-all duration-300 transform hover:scale-105 shadow-lg flex items-center justify-center ${btnBgClass}`;
         dom.startPauseBtn.innerHTML = `<i data-lucide="${btnIcon}" class="w-8 h-8 ${btnIcon === 'play' ? 'pl-1' : ''}"></i>`;
         dom.startPauseBtn.setAttribute('aria-label', ariaLabelText);
         renderIcons(dom.startPauseBtn);
@@ -422,10 +524,16 @@ export function updateMethodToggleUI() {
 }
 
 export function updateShowCompletedBtn() {
-    if (dom.toggleCompletedTasksBtn) {
-        dom.toggleCompletedTasksBtn.textContent = state.showCompletedTasks ? 'Ocultar Concluídas' : 'Mostrar Concluídas';
-        dom.toggleCompletedTasksBtn.classList.toggle('active', state.showCompletedTasks);
-    }
+    if (!dom.toggleCompletedTasksBtn) return;
+    const isShowing = Boolean(state.showCompletedTasks);
+    const label = isShowing ? 'Ocultar tarefas concluídas' : 'Mostrar tarefas concluídas';
+    dom.toggleCompletedTasksBtn.title = label;
+    dom.toggleCompletedTasksBtn.setAttribute('aria-label', label);
+    dom.toggleCompletedTasksBtn.classList.toggle('bg-primary-focus', isShowing);
+    dom.toggleCompletedTasksBtn.classList.toggle('bg-gray-700', !isShowing);
+    dom.toggleCompletedTasksBtn.classList.toggle('hover:bg-gray-600', !isShowing);
+    dom.toggleCompletedTasksBtn.innerHTML = `<i data-lucide="${isShowing ? 'eye-off' : 'eye'}" class="w-4 h-4"></i>`;
+    renderIcons(dom.toggleCompletedTasksBtn);
 }
 
 export function showModal(modalOverlay, message) {
@@ -441,35 +549,185 @@ export function hideModal(modalOverlay) {
     modalOverlay.classList.remove('visible');
 }
 
-export function showToast(type, data) {
-    let toastEl, nameEl, emojiEl;
-    if (type === 'achievement') {
-        toastEl = dom.achievementToast;
-        nameEl = dom.achievementToastName;
-        emojiEl = null;
-    } else {
-        toastEl = dom.missionToast;
-        nameEl = dom.missionToastName;
-        emojiEl = dom.missionToastEmoji;
+const noticeQueue = [];
+let activeNotice = null;
+let noticeTimeoutId = null;
+
+function clearNoticeTimer() {
+    if (noticeTimeoutId) {
+        clearTimeout(noticeTimeoutId);
+        noticeTimeoutId = null;
     }
-    if (!toastEl || !nameEl) return;
-    nameEl.textContent = data.name || data.title;
-    if (emojiEl && data.emoji) emojiEl.textContent = data.emoji;
-    toastEl.classList.add('show');
-    setTimeout(() => {
-        toastEl.classList.remove('show');
-    }, 4000);
+}
+
+export function hasActiveScreenNotice() {
+    return Boolean(activeNotice);
+}
+
+export function renderCurrentScreenNotice() {
+    const showInTimerScreen = Boolean(activeNotice && state.activeView === 'focus' && dom.timerScreenNotice && dom.timerRingView);
+    const showInline = Boolean(activeNotice && state.activeView !== 'focus' && dom.cardInlineNotice);
+
+    if (dom.timerRingView) dom.timerRingView.classList.toggle('hidden', showInTimerScreen);
+    if (dom.timerScreenNotice) dom.timerScreenNotice.classList.toggle('hidden', !showInTimerScreen);
+    if (dom.cardInlineNotice) dom.cardInlineNotice.classList.toggle('hidden', !showInline);
+
+    if (!activeNotice) return;
+
+    const totalRemaining = noticeQueue.length + 1;
+    const queueLabel = totalRemaining > 1 ? `1/${totalRemaining}` : '';
+    const iconName = escapeHtml(activeNotice.icon || 'bell');
+
+    if (showInTimerScreen) {
+        if (dom.screenNoticeBadge) dom.screenNoticeBadge.textContent = activeNotice.badge || 'Aviso';
+        if (dom.screenNoticeTitle) dom.screenNoticeTitle.textContent = activeNotice.title || '';
+        if (dom.screenNoticeSubtitle) dom.screenNoticeSubtitle.textContent = activeNotice.subtitle || '';
+        if (dom.screenNoticeRewards) {
+            dom.screenNoticeRewards.textContent = activeNotice.rewardsText || '';
+            dom.screenNoticeRewards.classList.toggle('hidden', !activeNotice.rewardsText);
+        }
+        if (dom.screenNoticeIcon) {
+            const accentClass =
+                activeNotice.accent === 'coin'
+                    ? 'text-coin'
+                    : activeNotice.accent === 'streak'
+                        ? 'text-streak'
+                        : 'text-primary-light';
+            dom.screenNoticeIcon.className = `w-12 h-12 rounded-2xl bg-gray-800 flex items-center justify-center mb-2 ${accentClass}`;
+            dom.screenNoticeIcon.innerHTML = `<i data-lucide="${iconName}" class="w-6 h-6"></i>`;
+            renderIcons(dom.screenNoticeIcon);
+        }
+        if (dom.screenNoticeHint) {
+            dom.screenNoticeHint.textContent =
+                noticeQueue.length > 0
+                    ? `Toque na tela para próxima (${noticeQueue.length} na fila)`
+                    : 'Toque na tela para continuar';
+        }
+        if (dom.screenNoticeBar) {
+            const dur = activeNotice.durationMs || 4000;
+            dom.screenNoticeBar.style.transition = 'none';
+            dom.screenNoticeBar.style.width = '100%';
+            // Force reflow para animar suavemente a barra regressiva
+            void dom.screenNoticeBar.offsetWidth;
+            dom.screenNoticeBar.style.transition = `width ${dur}ms linear`;
+            dom.screenNoticeBar.style.width = '0%';
+        }
+    }
+
+    if (showInline) {
+        if (dom.inlineNoticeTitle) dom.inlineNoticeTitle.textContent = activeNotice.title || activeNotice.badge || '';
+        if (dom.inlineNoticeSubtitle) {
+            dom.inlineNoticeSubtitle.textContent = activeNotice.rewardsText || activeNotice.subtitle || '';
+        }
+        if (dom.inlineNoticeQueue) dom.inlineNoticeQueue.textContent = queueLabel;
+        if (dom.inlineNoticeIcon) {
+            dom.inlineNoticeIcon.innerHTML = `<i data-lucide="${iconName}" class="w-4 h-4"></i>`;
+            renderIcons(dom.inlineNoticeIcon);
+        }
+    }
+}
+
+function advanceNoticeQueue() {
+    clearNoticeTimer();
+    if (noticeQueue.length === 0) {
+        activeNotice = null;
+        renderCurrentScreenNotice();
+        return;
+    }
+
+    activeNotice = noticeQueue.shift();
+    renderCurrentScreenNotice();
+
+    const dur = activeNotice.durationMs || 4000;
+    noticeTimeoutId = setTimeout(() => {
+        advanceNoticeQueue();
+    }, dur);
+}
+
+export function dismissCurrentScreenNotice() {
+    if (!activeNotice) return;
+    advanceNoticeQueue();
+}
+
+export function clearAllScreenNotices() {
+    clearNoticeTimer();
+    noticeQueue.length = 0;
+    activeNotice = null;
+    renderCurrentScreenNotice();
+}
+
+export function enqueueScreenNotice(notice) {
+    if (!notice) return;
+    noticeQueue.push(notice);
+    if (!activeNotice) {
+        advanceNoticeQueue();
+    } else {
+        renderCurrentScreenNotice();
+    }
+}
+
+export function showToast(type, data) {
+    const isAchievement = type === 'achievement';
+    const iconName = data.icon || missionsData[data.id]?.icon || (isAchievement ? 'trophy' : 'target');
+    const rewardsText =
+        !isAchievement && data.rewards
+            ? `+${data.rewards.xp} XP • +${data.rewards.coins} Moedas`
+            : '';
+
+    enqueueScreenNotice({
+        badge: isAchievement ? 'Conquista Desbloqueada' : 'Missão Cumprida',
+        title: data.name || data.title || '',
+        subtitle: data.description || '',
+        rewardsText,
+        icon: iconName,
+        accent: isAchievement ? 'coin' : 'primary',
+        durationMs: 4200,
+    });
 }
 
 export function applyTheme(themeName) {
     const theme = themes[themeName] || themes.brasil_dark;
+    const isLight =
+        String(theme['--color-bg-shell'] || '').includes('255, 255') ||
+        String(theme['--color-bg-shell'] || '').toLowerCase().startsWith('#fff');
+
+    const baseDefaults = isLight
+        ? {
+              '--color-bg-panel': 'rgba(243, 244, 246, 0.72)',
+              '--color-bg-input': 'rgba(255, 255, 255, 0.72)',
+              '--color-bg-input-light': 'rgba(229, 231, 235, 0.75)',
+              '--color-text-muted': '#4B5563',
+              '--color-text-placeholder': '#6B7280',
+              '--color-text-timer': '#111827',
+              '--color-border-subtle-rgb': '0, 0, 0',
+          }
+        : {
+              '--color-bg-panel': 'rgba(17, 24, 39, 0.75)',
+              '--color-bg-input': 'rgba(55, 65, 81, 0.72)',
+              '--color-bg-input-light': 'rgba(75, 85, 99, 0.72)',
+              '--color-text-muted': '#9CA3AF',
+              '--color-text-placeholder': '#6B7280',
+              '--color-text-timer': '#FFFFFF',
+              '--color-border-subtle-rgb': '255, 255, 255',
+          };
+
+    const primaryRgb = theme['--color-primary-rgb'] || '59, 130, 246';
+    const [r, g, b] = primaryRgb.split(',').map((n) => parseInt(n.trim(), 10) || 0);
+    const derivedPrimary = {
+        '--color-primary-focus-rgb': `${Math.max(0, r - 22)}, ${Math.max(0, g - 22)}, ${Math.max(0, b - 22)}`,
+        '--color-primary-darker-rgb': `${Math.max(0, r - 45)}, ${Math.max(0, g - 45)}, ${Math.max(0, b - 45)}`,
+        '--color-primary-light-rgb': `${Math.min(255, r + 40)}, ${Math.min(255, g + 40)}, ${Math.min(255, b + 40)}`,
+    };
+
+    const resolved = { ...baseDefaults, ...derivedPrimary, ...theme };
     const root = document.documentElement;
-    Object.keys(theme).forEach((key) => {
-        if (key !== 'name') root.style.setProperty(key, theme[key]);
+    Object.keys(resolved).forEach((key) => {
+        if (key !== 'name') root.style.setProperty(key, resolved[key]);
     });
     if (dom.themeColorMeta) {
-        dom.themeColorMeta.setAttribute('content', theme['--color-bg-shell']);
+        dom.themeColorMeta.setAttribute('content', resolved['--color-bg-shell']);
     }
+    applyThemeEffect(themeName);
 }
 
 export function formatTime(totalSeconds) {

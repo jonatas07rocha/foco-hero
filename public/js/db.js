@@ -1,12 +1,13 @@
 /**
  * db.js
- * Camada de acesso ao IndexedDB para estado atual e histórico multi-dias.
+ * Camada de acesso ao IndexedDB para estado atual, histórico multi-dias e áudios locais.
  */
 
 const DB_NAME = 'focototal_db';
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 const STORE_STATE = 'appState';
 const STORE_HISTORY = 'dailyHistory';
+const STORE_AUDIO = 'customAudio';
 
 let dbPromise = null;
 
@@ -20,7 +21,20 @@ export function openDatabase() {
     }
     if (dbPromise) return dbPromise;
 
-    dbPromise = new Promise((resolve, reject) => {
+    dbPromise = new Promise((resolve) => {
+        let settled = false;
+        const finish = (val) => {
+            if (!settled) {
+                settled = true;
+                resolve(val);
+            }
+        };
+
+        const timeoutId = setTimeout(() => {
+            dbPromise = null;
+            finish(null);
+        }, 1500);
+
         const request = indexedDB.open(DB_NAME, DB_VERSION);
 
         request.onupgradeneeded = (event) => {
@@ -31,12 +45,31 @@ export function openDatabase() {
             if (!db.objectStoreNames.contains(STORE_HISTORY)) {
                 db.createObjectStore(STORE_HISTORY, { keyPath: 'date' });
             }
+            if (!db.objectStoreNames.contains(STORE_AUDIO)) {
+                db.createObjectStore(STORE_AUDIO, { keyPath: 'id' });
+            }
         };
 
-        request.onsuccess = () => resolve(request.result);
-        request.onerror = () => {
+        request.onblocked = () => {
+            clearTimeout(timeoutId);
             dbPromise = null;
-            reject(request.error);
+            finish(null);
+        };
+
+        request.onsuccess = () => {
+            clearTimeout(timeoutId);
+            const db = request.result;
+            db.onversionchange = () => {
+                db.close();
+                dbPromise = null;
+            };
+            finish(db);
+        };
+
+        request.onerror = () => {
+            clearTimeout(timeoutId);
+            dbPromise = null;
+            finish(null);
         };
     });
 
@@ -108,6 +141,46 @@ export async function replaceHistoryInDB(historyArray) {
                 store.put(item);
             }
         });
+        tx.oncomplete = () => resolve(true);
+        tx.onerror = () => resolve(false);
+    });
+}
+
+export async function saveCustomAudioToDB(track) {
+    const db = await openDatabase().catch(() => null);
+    if (!db) return false;
+
+    return new Promise((resolve) => {
+        const tx = db.transaction(STORE_AUDIO, 'readwrite');
+        tx.objectStore(STORE_AUDIO).put(track);
+        tx.oncomplete = () => resolve(true);
+        tx.onerror = () => resolve(false);
+    });
+}
+
+export async function loadAllCustomAudiosFromDB() {
+    const db = await openDatabase().catch(() => null);
+    if (!db) return [];
+
+    return new Promise((resolve) => {
+        const tx = db.transaction(STORE_AUDIO, 'readonly');
+        const req = tx.objectStore(STORE_AUDIO).getAll();
+        req.onsuccess = () => {
+            const rows = Array.isArray(req.result) ? req.result : [];
+            rows.sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
+            resolve(rows);
+        };
+        req.onerror = () => resolve([]);
+    });
+}
+
+export async function deleteCustomAudioFromDB(id) {
+    const db = await openDatabase().catch(() => null);
+    if (!db) return false;
+
+    return new Promise((resolve) => {
+        const tx = db.transaction(STORE_AUDIO, 'readwrite');
+        tx.objectStore(STORE_AUDIO).delete(id);
         tx.oncomplete = () => resolve(true);
         tx.onerror = () => resolve(false);
     });

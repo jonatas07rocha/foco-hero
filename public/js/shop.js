@@ -18,6 +18,30 @@ export const shopCollections = {
             },
         },
     },
+    SOUNDSCAPES: {
+        name: 'Pacotes Sonoros',
+        description: 'Novas atmosferas procedurais 100% offline para o mixer.',
+        items: {
+            SOUND_PACK_ZEN: {
+                id: 'SOUND_PACK_ZEN',
+                name: 'Pacote Zen & Lareira',
+                description: 'Desbloqueia Lareira Crepitante e Ondas do Mar.',
+                price: 150,
+                type: 'sound_pack',
+                packId: 'PACK_ZEN',
+                icon: 'flame',
+            },
+            SOUND_PACK_SYNTH: {
+                id: 'SOUND_PACK_SYNTH',
+                name: 'Pacote Synth & Alfa',
+                description: 'Desbloqueia Onda Alfa 10Hz e Synth Drone.',
+                price: 180,
+                type: 'sound_pack',
+                packId: 'PACK_SYNTH',
+                icon: 'headphones',
+            },
+        },
+    },
     NATUREZA: {
         name: 'Coleção Paisagens Brasileiras',
         description: 'Temas inspirados na beleza natural do Brasil.',
@@ -92,7 +116,7 @@ export const shopCollections = {
         items: {
             MATRIX_DARK: {
                 id: 'MATRIX_DARK',
-                name: 'Tema Matrix (Escuro)',
+                name: 'Tema Matriz',
                 price: 350,
                 type: 'theme',
                 themeId: 'tech_matrix',

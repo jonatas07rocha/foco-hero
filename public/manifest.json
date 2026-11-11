@@ -1,6 +1,6 @@
 {
-    "name": "Foco Total",
-    "short_name": "Foco Total",
+    "name": "Foco Hero",
+    "short_name": "Foco Hero",
     "start_url": "./",
     "scope": "./",
     "display": "standalone",

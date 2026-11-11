@@ -1,28 +1,21 @@
 /**
  * analytics.js
- * Cálculo de estatísticas semanais, distribuição por categoria (tags) e análise de interrupções.
+ * Cálculo de estatísticas semanais e análise de interrupções.
  */
 
 import { state, getLocalDateString } from './state.js';
 
 export function buildDaySummary(dateString = state.currentDate) {
-    const byTag = {};
     let focusTimeSeconds = 0;
     let pomodorosCompleted = 0;
     let internalInterruptions = 0;
     let externalInterruptions = 0;
 
     state.tasks.forEach((task) => {
-        const ft = task.focusTime || 0;
-        focusTimeSeconds += ft;
+        focusTimeSeconds += task.focusTime || 0;
         pomodorosCompleted += task.pomodorosCompleted || 0;
         internalInterruptions += task.internalInterruptions || 0;
         externalInterruptions += task.externalInterruptions || 0;
-
-        const tag = task.tag || 'Geral';
-        if (ft > 0) {
-            byTag[tag] = (byTag[tag] || 0) + ft;
-        }
     });
 
     return {
@@ -32,7 +25,6 @@ export function buildDaySummary(dateString = state.currentDate) {
         tasksCompleted: state.tasks.filter((t) => t.completed).length,
         internalInterruptions,
         externalInterruptions,
-        byTag,
     };
 }
 
@@ -61,7 +53,6 @@ export function getLastNDaysStats(days = 7, referenceDate = new Date()) {
             tasksCompleted: 0,
             internalInterruptions: 0,
             externalInterruptions: 0,
-            byTag: {},
         };
         result.push({
             ...entry,
@@ -79,23 +70,11 @@ export function getWeeklyAggregates(days = 7, referenceDate = new Date()) {
     const totalInternal = series.reduce((sum, d) => sum + (d.internalInterruptions || 0), 0);
     const totalExternal = series.reduce((sum, d) => sum + (d.externalInterruptions || 0), 0);
 
-    const tagTotals = {};
-    series.forEach((d) => {
-        Object.entries(d.byTag || {}).forEach(([tag, secs]) => {
-            tagTotals[tag] = (tagTotals[tag] || 0) + secs;
-        });
-    });
-
-    const sortedTags = Object.entries(tagTotals)
-        .map(([tag, seconds]) => ({ tag, seconds }))
-        .sort((a, b) => b.seconds - a.seconds);
-
     return {
         series,
         totalFocusSeconds,
         totalPomodoros,
         totalInternal,
         totalExternal,
-        sortedTags,
     };
 }

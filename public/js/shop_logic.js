@@ -7,7 +7,7 @@ import { shopCollections } from './shop.js';
 import { themes } from './themes.js';
 import { state } from './state.js';
 import { dom } from './ui.js';
-import { applyTheme, renderPaletteSelector, showModal, updateGamificationUI } from './ui_controller.js';
+import { applyTheme, enqueueScreenNotice, renderPaletteSelector, renderSoundscapesPanel, updateGamificationUI } from './ui_controller.js';
 import { saveState } from './persistence.js';
 import { playBeep } from './audio.js';
 import { renderIcons } from './icons.js';
@@ -91,6 +91,18 @@ export function renderShop() {
                         ${isMaxed ? 'Limite Máximo' : `<div class="flex items-center justify-center"><i data-lucide="circle-dollar-sign" class="w-4 h-4 mr-2"></i> ${item.price}</div>`}
                     </button>
                 `;
+            } else if (item.type === 'sound_pack') {
+                const isOwned = (state.gamification.unlockedSoundPacks || []).includes(item.packId);
+                itemEl.innerHTML = `
+                    <div class="w-full h-10 rounded mb-2 flex items-center justify-center bg-gray-900 border border-gray-600 text-primary-light">
+                        <i data-lucide="${item.icon || 'headphones'}" class="w-5 h-5"></i>
+                    </div>
+                    <p class="font-semibold text-sm text-center">${item.name}</p>
+                    <p class="text-xs text-muted text-center mb-3 mt-1">${item.description}</p>
+                    <button data-item-id="${item.id}" class="buy-btn w-full text-sm font-bold py-2 px-3 rounded-lg transition-colors ${isOwned ? 'bg-gray-600 text-gray-400 cursor-not-allowed' : 'bg-primary-focus hover:bg-primary-darker text-white'}" ${isOwned ? 'disabled' : ''}>
+                        ${isOwned ? 'Adquirido' : `<div class="flex items-center justify-center"><i data-lucide="circle-dollar-sign" class="w-4 h-4 mr-2"></i> ${item.price}</div>`}
+                    </button>
+                `;
             } else {
                 const themeObj = themes[item.themeId];
                 const isOwned = state.gamification.unlockedThemes.includes(item.themeId);
@@ -130,21 +142,43 @@ export function buyItem(itemId, now = new Date()) {
 
     if (itemToBuy.type === 'theme') {
         if (!isItemAvailableNow(itemToBuy, now)) {
-            if (dom.alertModalOverlay) showModal(dom.alertModalOverlay, `Item sazonal indisponível no momento (${itemToBuy.availability}).`);
+            enqueueScreenNotice({
+                badge: 'Loja do Foco',
+                title: 'Item Sazonal Indisponível',
+                subtitle: itemToBuy.availability || 'Fora de época no momento.',
+                icon: 'calendar',
+                accent: 'primary',
+            });
             return { ok: false, reason: 'OUT_OF_SEASON' };
         }
         if (state.gamification.unlockedThemes.includes(itemToBuy.themeId)) {
             return { ok: false, reason: 'ALREADY_OWNED' };
         }
+    } else if (itemToBuy.type === 'sound_pack') {
+        if ((state.gamification.unlockedSoundPacks || []).includes(itemToBuy.packId)) {
+            return { ok: false, reason: 'ALREADY_OWNED' };
+        }
     } else if (itemToBuy.type === 'consumable' && itemToBuy.id === 'STREAK_FREEZE') {
         if ((state.gamification.streakFreezes || 0) >= (itemToBuy.maxOwned || 5)) {
-            if (dom.alertModalOverlay) showModal(dom.alertModalOverlay, 'Você já atingiu o limite máximo de Escudos de Sequência.');
+            enqueueScreenNotice({
+                badge: 'Loja do Foco',
+                title: 'Limite Atingido',
+                subtitle: 'Você já possui o máximo de Escudos de Sequência.',
+                icon: 'shield',
+                accent: 'primary',
+            });
             return { ok: false, reason: 'MAX_OWNED' };
         }
     }
 
     if (state.gamification.coins < itemToBuy.price) {
-        if (dom.alertModalOverlay) showModal(dom.alertModalOverlay, 'Moedas insuficientes!');
+        enqueueScreenNotice({
+            badge: 'Loja do Foco',
+            title: 'Moedas Insuficientes',
+            subtitle: `Faltam ${itemToBuy.price - state.gamification.coins} moedas para este item.`,
+            icon: 'circle-dollar-sign',
+            accent: 'coin',
+        });
         playBeep(440, 150, 0.3);
         return { ok: false, reason: 'INSUFFICIENT_COINS' };
     }
@@ -153,10 +187,34 @@ export function buyItem(itemId, now = new Date()) {
 
     if (itemToBuy.type === 'theme') {
         state.gamification.unlockedThemes.push(itemToBuy.themeId);
-        if (dom.alertModalOverlay) showModal(dom.alertModalOverlay, `Tema "${itemToBuy.name}" comprado com sucesso!`);
+        enqueueScreenNotice({
+            badge: 'Compra Concluída',
+            title: itemToBuy.name,
+            subtitle: 'Novo tema liberado em Ajustes.',
+            icon: 'palette',
+            accent: 'primary',
+        });
+    } else if (itemToBuy.type === 'sound_pack') {
+        if (!Array.isArray(state.gamification.unlockedSoundPacks)) {
+            state.gamification.unlockedSoundPacks = [];
+        }
+        state.gamification.unlockedSoundPacks.push(itemToBuy.packId);
+        enqueueScreenNotice({
+            badge: 'Compra Concluída',
+            title: itemToBuy.name,
+            subtitle: 'Sons liberados no mixer de Paisagens Sonoras.',
+            icon: 'headphones',
+            accent: 'primary',
+        });
     } else if (itemToBuy.id === 'STREAK_FREEZE') {
         state.gamification.streakFreezes = (state.gamification.streakFreezes || 0) + 1;
-        if (dom.alertModalOverlay) showModal(dom.alertModalOverlay, 'Escudo de Sequência adquirido! Ele protegerá sua sequência automaticamente.');
+        enqueueScreenNotice({
+            badge: 'Compra Concluída',
+            title: 'Escudo de Sequência',
+            subtitle: 'Proteção automática ativada para sua sequência.',
+            icon: 'shield',
+            accent: 'primary',
+        });
     }
 
     playBeep(880, 200, 0.4);
@@ -164,6 +222,7 @@ export function buyItem(itemId, now = new Date()) {
     renderShop();
     updateGamificationUI();
     renderPaletteSelector();
+    renderSoundscapesPanel();
     saveState();
     return { ok: true, item: itemToBuy };
 }

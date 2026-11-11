@@ -49,7 +49,10 @@ const server = http.createServer(async (req, res) => {
         const ext = path.extname(finalPath).toLowerCase();
         const contentType = MIME_TYPES[ext] || 'application/octet-stream';
         const data = await fs.readFile(finalPath);
-        res.writeHead(200, { 'Content-Type': contentType });
+        res.writeHead(200, {
+            'Content-Type': contentType,
+            'Cache-Control': 'no-store, must-revalidate',
+        });
         res.end(data);
     } catch (error) {
         console.error('Erro no servidor local:', error);
@@ -59,5 +62,5 @@ const server = http.createServer(async (req, res) => {
 });
 
 server.listen(PORT, HOST, () => {
-    console.log(`Foco Total rodando localmente em http://${HOST}:${PORT}`);
+    console.log(`Foco Hero rodando localmente em http://${HOST}:${PORT}`);
 });

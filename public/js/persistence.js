@@ -12,6 +12,7 @@ import {
     saveDayHistoryToDB,
     loadAllHistoryFromDB,
     replaceHistoryInDB,
+    loadAllCustomAudiosFromDB,
 } from './db.js';
 import { buildDaySummary } from './analytics.js';
 import { resetTimer, resetDayCounters } from './timer.js';
@@ -30,8 +31,13 @@ export function serializeState() {
         longBreaksToday: state.longBreaksToday,
         startedBefore9AM: state.startedBefore9AM,
         showCompletedTasks: state.showCompletedTasks,
-        selectedTagFilter: state.selectedTagFilter,
-        settings: { ...state.settings },
+        settings: {
+            ...state.settings,
+            soundscapes: {
+                ...state.settings.soundscapes,
+                activeLayers: { ...(state.settings.soundscapes?.activeLayers || {}) },
+            },
+        },
         gamification: {
             ...state.gamification,
             changedThemesCount: Array.from(state.gamification.changedThemesCount || []),
@@ -53,7 +59,7 @@ export function hydrateState(savedState) {
 
     state.currentDate = savedState.currentDate || getLocalDateString();
     state.tasks = Array.isArray(savedState.tasks)
-        ? savedState.tasks.map((t) => ({ tag: 'Geral', ...t, isEditing: false }))
+        ? savedState.tasks.map((t) => ({ ...t, isEditing: false }))
         : [];
     state.selectedTaskId = savedState.selectedTaskId ?? null;
     state.pomodoroSessionCount = savedState.pomodoroSessionCount || 0;
@@ -62,15 +68,23 @@ export function hydrateState(savedState) {
     state.longBreaksToday = savedState.longBreaksToday || 0;
     state.startedBefore9AM = savedState.startedBefore9AM || 0;
     state.showCompletedTasks = Boolean(savedState.showCompletedTasks);
-    state.selectedTagFilter = savedState.selectedTagFilter || 'Todas';
 
     if (savedState.settings) {
+        const prevSoundscapes = state.settings.soundscapes;
         Object.assign(state.settings, savedState.settings);
+        state.settings.soundscapes = {
+            ...prevSoundscapes,
+            ...(savedState.settings.soundscapes || {}),
+            activeLayers: { ...(savedState.settings.soundscapes?.activeLayers || {}) },
+        };
     }
     if (savedState.gamification) {
         Object.assign(state.gamification, savedState.gamification);
     }
     state.gamification.changedThemesCount = new Set(savedState.gamification?.changedThemesCount || []);
+    if (!Array.isArray(state.gamification.unlockedSoundPacks)) {
+        state.gamification.unlockedSoundPacks = [];
+    }
     if (typeof state.gamification.streakFreezes !== 'number') {
         state.gamification.streakFreezes = 0;
     }
@@ -111,6 +125,17 @@ export function hydrateState(savedState) {
     if (dom.autoStartFocusCheckbox) dom.autoStartFocusCheckbox.checked = Boolean(state.settings.autoStartFocus);
     if (dom.notificationsToggleCheckbox) dom.notificationsToggleCheckbox.checked = Boolean(state.settings.notificationsEnabled);
     if (dom.soundToggleCheckbox) dom.soundToggleCheckbox.checked = state.settings.soundEnabled !== false;
+    if (dom.soundMasterVolume) {
+        const volPct = Math.round((state.settings.soundscapes?.masterVolume ?? 0.65) * 100);
+        dom.soundMasterVolume.value = volPct;
+        if (dom.soundMasterVolumeValue) dom.soundMasterVolumeValue.textContent = `${volPct}%`;
+    }
+    if (dom.soundPauseBehavior) {
+        dom.soundPauseBehavior.value = state.settings.soundscapes?.pauseBehavior || 'mute';
+    }
+    if (dom.soundSyncTheme) {
+        dom.soundSyncTheme.checked = Boolean(state.settings.soundscapes?.syncWithTheme);
+    }
 }
 
 export async function saveState() {
@@ -138,10 +163,6 @@ export async function archiveDay(dateStr = state.currentDate, { keepPendingTasks
         const existingIdx = state.history.findIndex((h) => h.date === summary.date);
         if (existingIdx >= 0) {
             const prev = state.history[existingIdx];
-            const mergedByTag = { ...(prev.byTag || {}) };
-            Object.entries(summary.byTag || {}).forEach(([tag, secs]) => {
-                mergedByTag[tag] = (mergedByTag[tag] || 0) + secs;
-            });
             const merged = {
                 date: summary.date,
                 focusTimeSeconds: (prev.focusTimeSeconds || 0) + summary.focusTimeSeconds,
@@ -149,7 +170,6 @@ export async function archiveDay(dateStr = state.currentDate, { keepPendingTasks
                 tasksCompleted: (prev.tasksCompleted || 0) + summary.tasksCompleted,
                 internalInterruptions: (prev.internalInterruptions || 0) + summary.internalInterruptions,
                 externalInterruptions: (prev.externalInterruptions || 0) + summary.externalInterruptions,
-                byTag: mergedByTag,
             };
             state.history[existingIdx] = merged;
             await saveDayHistoryToDB(merged);
@@ -193,6 +213,7 @@ export async function loadState() {
     }
 
     state.history = await loadAllHistoryFromDB();
+    state.customAudios = await loadAllCustomAudiosFromDB();
 
     if (savedState) {
         hydrateState(savedState);
@@ -209,7 +230,7 @@ export async function loadState() {
 export function exportBackupJSON() {
     return JSON.stringify(
         {
-            app: 'Foco Total',
+            app: 'Foco Hero',
             version: 2,
             exportedAt: new Date().toISOString(),
             appState: serializeState(),

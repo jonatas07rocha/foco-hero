@@ -745,16 +745,24 @@ export const themes = {
 
     // Coleção Tecnologia & Ficção Científica
     tech_matrix: {
-        name: 'Matrix',
+        name: 'Matriz',
         '--color-primary-rgb': '57, 255, 20',
-        '--color-bg-main': '#000000',
-        '--color-bg-shell': 'rgba(13, 13, 13, 0.75)',    // Original: #0D0D0D
-        '--color-text-base': '#39FF14',
-        '--color-text-header': '#FFFFFF',
-        '--color-break-short': '200, 200, 200',
-        '--color-break-long': '100, 100, 100',
-        '--border-glass': '1px solid rgba(255, 255, 255, 0.15)',
-        '--backdrop-filter-glass': 'blur(16px)',
+        '--color-primary-focus-rgb': '34, 197, 94',
+        '--color-primary-darker-rgb': '21, 128, 61',
+        '--color-primary-light-rgb': '134, 239, 172',
+        '--color-bg-main': '#000802',
+        '--color-bg-shell': 'rgba(4, 18, 8, 0.78)',
+        '--color-bg-panel': 'rgba(0, 14, 4, 0.85)',
+        '--color-bg-input': 'rgba(8, 32, 14, 0.8)',
+        '--color-bg-input-light': 'rgba(14, 48, 22, 0.85)',
+        '--color-text-base': '#A7F3D0',
+        '--color-text-header': '#ECFDF5',
+        '--color-text-muted': '#6EE7B7',
+        '--color-text-timer': '#39FF14',
+        '--color-break-short': '134, 239, 172',
+        '--color-break-long': '16, 185, 129',
+        '--border-glass': '1px solid rgba(57, 255, 20, 0.25)',
+        '--backdrop-filter-glass': 'blur(12px)',
     },
     tech_vaporwave: {
         name: 'Vaporwave',
